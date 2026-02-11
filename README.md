@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/voxlibri.png" alt="VoxLibri" width="400">
+</p>
+
 # VoxLibri
 
 AI-enhanced book comprehension platform. Upload EPUB/PDF files, read with a 3-column interface, and generate AI-powered chapter summaries with cost controls.
@@ -10,6 +14,47 @@ AI-enhanced book comprehension platform. Upload EPUB/PDF files, read with a 3-co
 - **Book-level analysis** aggregating insights across all chapters
 - **Cost controls** with daily/monthly limits and preview before every AI call
 - **Fabric prompt integration** for customizable summarization styles
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/library.png" alt="Library View" width="800">
+  <br><em>Library view with uploaded books</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/reading.png" alt="Reading View" width="800">
+  <br><em>3-column reading interface with AI summaries</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/analysis.png" alt="Book Analysis" width="800">
+  <br><em>AI-generated book analysis report</em>
+</p>
+
+## Sample Output
+
+VoxLibri includes two sample books for testing. Here's what the AI analysis produces:
+
+### The Art of War by Sun Tzu
+
+> **Book Thesis**: A treatise on military strategy that transcends warfare to offer timeless principles of competition, leadership, and strategic thinking applicable to business, politics, and life.
+>
+> **Key Arguments**:
+> - Victory comes from strategic positioning, not brute force
+> - Know yourself and your enemy to ensure success
+> - Adaptability and deception are essential tools
+> - The supreme art is subduing the enemy without fighting
+
+### Pride and Prejudice by Jane Austen
+
+> **Book Thesis**: A witty examination of how pride and prejudice obstruct love, set against the marriage market of Regency England.
+>
+> **Key Arguments**:
+> - First impressions are often wrong and must be revised
+> - Social class and wealth complicate romantic relationships
+> - Self-knowledge requires painful honesty
+> - True love emerges when both parties grow and change
 
 ## Quick Start
 
@@ -71,6 +116,9 @@ voxlibri/
 │   └── templates/        # HTML templates
 ├── prompts/              # AI prompt templates (YAML frontmatter + markdown)
 ├── media/books/          # Uploaded files and covers
+├── docs/                 # Documentation and images
+│   ├── voxlibri.png      # Logo
+│   └── screenshots/      # App screenshots
 └── voxlibri/             # Django project settings
 ```
 

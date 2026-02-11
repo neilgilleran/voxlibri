@@ -15,7 +15,7 @@ AI-enhanced book comprehension platform. Upload EPUB/PDF files, read with a 3-co
 
 ```bash
 # Clone and setup
-git clone https://github.com/yourusername/voxlibri.git
+git clone https://github.com/neilgilleran/voxlibri.git
 cd voxlibri
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate

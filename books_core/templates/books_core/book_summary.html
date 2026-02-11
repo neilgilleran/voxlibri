@@ -1,0 +1,819 @@
+{% extends 'books_core/base.html' %}
+{% load humanize %}
+
+{% block title %}{{ book.title }} - Book Analysis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Book Analysis</h1>
+    <a href="{% url 'book_detail' book.id %}" class="link-back">← Back to Book</a>
+</div>
+
+<div class="book-summary-container">
+    <div class="book-info-section">
+        <h2>{{ book.title }}</h2>
+        <p class="author">by {{ book.author }}</p>
+    </div>
+
+    {% if not has_summaries %}
+        <!-- Empty State -->
+        <div class="empty-state">
+            <h3>No analysis available for this book yet</h3>
+            <p>Select prompts to run for AI-powered analysis:</p>
+
+            <div class="prompt-selection">
+                <div class="prompt-selection-header">
+                    <label>
+                        <input type="checkbox" id="select-all-prompts" checked> Select All
+                    </label>
+                </div>
+
+                <ul class="prompt-list-checkboxes">
+                    {% for prompt in available_prompts %}
+                    <li>
+                        <label>
+                            <input type="checkbox" class="prompt-checkbox" value="{{ prompt.id }}" data-prompt-name="{{ prompt.name }}" checked>
+                            {{ prompt.name|title }}
+                            <span class="prompt-category">({{ prompt.category }})</span>
+                        </label>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            {% if ai_enabled %}
+                <div class="generate-section">
+                    <label for="model-select">Select AI Model:</label>
+                    <select id="model-select" class="form-control">
+                        <option value="gpt-4o-mini" {% if default_model == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o Mini</option>
+                        <option value="gpt-4o" {% if default_model == 'gpt-4o' %}selected{% endif %}>GPT-4o</option>
+                    </select>
+
+                    <button id="generate-btn" class="btn btn-primary">
+                        Run Selected Prompts
+                    </button>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    AI features are currently disabled. Visit <a href="{% url 'settings' %}">Settings</a> to enable.
+                </div>
+            {% endif %}
+        </div>
+
+    {% else %}
+        <!-- Results Display -->
+        <div class="analysis-meta">
+            <p><strong>Model Used:</strong> {{ model_used }}</p>
+            <p><strong>Generated:</strong> {{ generation_timestamp|date:"M d, Y, g:i A" }}</p>
+        </div>
+
+        <!-- Prompt Selection for Regeneration -->
+        {% if ai_enabled %}
+        <div class="prompt-selection">
+            <div class="prompt-selection-header">
+                <label>
+                    <input type="checkbox" id="select-all-prompts" checked> Select prompts to run
+                </label>
+            </div>
+
+            <ul class="prompt-list-checkboxes">
+                {% for prompt in available_prompts %}
+                <li>
+                    <label>
+                        <input type="checkbox" class="prompt-checkbox" value="{{ prompt.id }}" data-prompt-name="{{ prompt.name }}" checked>
+                        {{ prompt.name|title }}
+                        <span class="prompt-category">({{ prompt.category }})</span>
+                    </label>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <div class="regenerate-section">
+                <label for="model-select-regen">Select AI Model:</label>
+                <select id="model-select-regen" class="form-control">
+                    <option value="gpt-4o-mini" {% if default_model == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o Mini</option>
+                    <option value="gpt-4o" {% if default_model == 'gpt-4o' %}selected{% endif %}>GPT-4o</option>
+                </select>
+
+                <button id="regenerate-btn" class="btn btn-primary">
+                    Run Selected Prompts
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <h3 style="margin-top: 2rem;">Previous Results</h3>
+        <div class="accordion" id="summaries-accordion">
+            {% for item in summaries %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading-{{ forloop.counter }}">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#collapse-{{ forloop.counter }}"
+                                aria-expanded="false" aria-controls="collapse-{{ forloop.counter }}">
+                            {{ forloop.counter }}. {{ item.prompt_display }}
+                        </button>
+                    </h2>
+                    <div id="collapse-{{ forloop.counter }}" class="accordion-collapse collapse"
+                         aria-labelledby="heading-{{ forloop.counter }}" data-bs-parent="#summaries-accordion">
+                        <div class="accordion-body">
+                            {% if item.versions|length > 1 %}
+                            <div class="version-selector">
+                                <label for="version-select-{{ forloop.counter }}">Version:</label>
+                                <select id="version-select-{{ forloop.counter }}" class="version-select" data-prompt-index="{{ forloop.counter }}">
+                                    {% for version in item.versions %}
+                                    <option value="{{ version.id }}" {% if forloop.first %}selected{% endif %}>
+                                        v{{ version.version }} - {{ version.created_at|date:"M d, Y g:i A" }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% endif %}
+
+                            <div class="summary-content" id="content-{{ forloop.counter }}" data-markdown>{{ item.content }}</div>
+
+                            <div class="summary-meta" id="meta-{{ forloop.counter }}">
+                                <small>
+                                    Version: {{ item.latest_version.version }} |
+                                    Tokens: {{ item.latest_version.tokens_used }} |
+                                    Cost: ${{ item.latest_version.estimated_cost_usd }}
+                                </small>
+                            </div>
+
+                            <!-- Store all version data as JSON for JS to access -->
+                            <script type="application/json" id="versions-data-{{ forloop.counter }}">
+                                [
+                                {% for version in item.versions %}
+                                {
+                                    "id": {{ version.id }},
+                                    "version": {{ version.version }},
+                                    "content": "{{ version.content|escapejs }}",
+                                    "tokens": {{ version.tokens_used }},
+                                    "cost": "{{ version.estimated_cost_usd }}",
+                                    "created_at": "{{ version.created_at|date:"M d, Y g:i A" }}"
+                                }{% if not forloop.last %},{% endif %}
+                                {% endfor %}
+                                ]
+                            </script>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Cost Preview Modal -->
+<div id="cost-preview-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Book Analysis Cost Preview</h3>
+            <button class="modal-close" onclick="closeCostModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="cost-preview-content">
+                <p>Loading cost estimate...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeCostModal()" class="btn btn-secondary">Cancel</button>
+            <button id="confirm-generate-btn" class="btn btn-primary">Confirm & Generate</button>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div id="progress-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Generating Analysis</h3>
+        </div>
+        <div class="modal-body">
+            <div id="progress-message">Processing...</div>
+            <div class="progress-bar">
+                <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <div id="progress-details"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const bookId = {{ book.id }};
+let selectedModel = '{{ default_model }}';
+let currentJobId = null;
+
+// Update selected model on change
+document.addEventListener('DOMContentLoaded', function() {
+    const modelSelect = document.getElementById('model-select');
+    if (modelSelect) {
+        modelSelect.addEventListener('change', function() {
+            selectedModel = this.value;
+        });
+    }
+
+    // Also handle model select in regenerate section
+    const modelSelectRegen = document.getElementById('model-select-regen');
+    if (modelSelectRegen) {
+        modelSelectRegen.addEventListener('change', function() {
+            selectedModel = this.value;
+        });
+    }
+
+    // Handle "Select All" checkbox
+    const selectAllCheckbox = document.getElementById('select-all-prompts');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const promptCheckboxes = document.querySelectorAll('.prompt-checkbox');
+            promptCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateGenerateButton();
+            updateRegenerateButton();
+        });
+    }
+
+    // Handle individual prompt checkboxes
+    const promptCheckboxes = document.querySelectorAll('.prompt-checkbox');
+    promptCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateSelectAllCheckbox();
+            updateGenerateButton();
+            updateRegenerateButton();
+        });
+    });
+
+    // Update "Select All" checkbox state based on individual checkboxes
+    function updateSelectAllCheckbox() {
+        const selectAll = document.getElementById('select-all-prompts');
+        if (!selectAll) return;
+
+        const allCheckboxes = document.querySelectorAll('.prompt-checkbox');
+        const checkedCount = document.querySelectorAll('.prompt-checkbox:checked').length;
+
+        selectAll.checked = checkedCount === allCheckboxes.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+    }
+
+    // Update generate button text to show count
+    function updateGenerateButton() {
+        const generateBtn = document.getElementById('generate-btn');
+        if (!generateBtn) return;
+
+        const checkedCount = document.querySelectorAll('.prompt-checkbox:checked').length;
+        if (checkedCount === 0) {
+            generateBtn.textContent = 'Run Selected Prompts';
+            generateBtn.disabled = true;
+        } else {
+            generateBtn.textContent = `Run Selected Prompts (${checkedCount})`;
+            generateBtn.disabled = false;
+        }
+    }
+
+    // Update regenerate button text to show count
+    function updateRegenerateButton() {
+        const regenerateBtn = document.getElementById('regenerate-btn');
+        if (!regenerateBtn) return;
+
+        const checkedCount = document.querySelectorAll('.prompt-checkbox:checked').length;
+        if (checkedCount === 0) {
+            regenerateBtn.textContent = 'Run Selected Prompts';
+            regenerateBtn.disabled = true;
+        } else {
+            regenerateBtn.textContent = `Run Selected Prompts (${checkedCount})`;
+            regenerateBtn.disabled = false;
+        }
+    }
+
+    // Initial button state
+    updateGenerateButton();
+    updateRegenerateButton();
+
+    // Handle version switching
+    const versionSelects = document.querySelectorAll('.version-select');
+    versionSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const promptIndex = this.getAttribute('data-prompt-index');
+            const selectedVersionId = parseInt(this.value);
+
+            // Get the versions data
+            const versionsData = JSON.parse(document.getElementById(`versions-data-${promptIndex}`).textContent);
+
+            // Find the selected version
+            const selectedVersion = versionsData.find(v => v.id === selectedVersionId);
+
+            if (selectedVersion) {
+                // Update content with markdown rendering
+                const contentDiv = document.getElementById(`content-${promptIndex}`);
+                contentDiv.innerHTML = marked.parse(selectedVersion.content);
+
+                // Update metadata
+                const metaDiv = document.getElementById(`meta-${promptIndex}`);
+                metaDiv.innerHTML = `<small>
+                    Version: ${selectedVersion.version} |
+                    Tokens: ${selectedVersion.tokens} |
+                    Cost: $${selectedVersion.cost}
+                </small>`;
+            }
+        });
+    });
+
+    // Handle generate button
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', showCostPreview);
+    }
+
+    // Handle regenerate button
+    const regenerateBtn = document.getElementById('regenerate-btn');
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', showCostPreview);
+    }
+
+    // Handle confirm generate
+    const confirmBtn = document.getElementById('confirm-generate-btn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', confirmGenerate);
+    }
+
+    // Setup accordion toggle functionality
+    const accordionButtons = document.querySelectorAll('.accordion-button');
+    accordionButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const target = this.getAttribute('data-bs-target');
+            const collapse = document.querySelector(target);
+            if (collapse) {
+                collapse.classList.toggle('show');
+                this.classList.toggle('collapsed');
+            }
+        });
+    });
+});
+
+async function showCostPreview() {
+    // Show modal
+    document.getElementById('cost-preview-modal').style.display = 'flex';
+
+    // Get selected prompt IDs
+    const selectedPromptIds = Array.from(document.querySelectorAll('.prompt-checkbox:checked'))
+        .map(checkbox => parseInt(checkbox.value));
+
+    // Build query string with prompt IDs
+    const promptIdsParam = selectedPromptIds.map(id => `prompt_ids=${id}`).join('&');
+
+    // Fetch cost preview
+    try {
+        const response = await fetch(`/books/${bookId}/summary/cost-preview/?model=${selectedModel}&${promptIdsParam}`);
+        const data = await response.json();
+
+        if (data.error || data.limit_exceeded) {
+            document.getElementById('cost-preview-content').innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> ${data.error}
+                </div>
+            `;
+            document.getElementById('confirm-generate-btn').disabled = true;
+            return;
+        }
+
+        // Display cost preview
+        document.getElementById('cost-preview-content').innerHTML = `
+            <div class="cost-preview-section">
+                <h4>${data.book.title}</h4>
+                <p>${data.estimate.num_prompts} Prompts | Model: ${data.estimate.model}</p>
+            </div>
+
+            <div class="cost-estimate">
+                <div class="estimate-item">
+                    <label>Estimated Tokens:</label>
+                    <span>${data.estimate.total_tokens.toLocaleString()}</span>
+                </div>
+                <div class="estimate-item">
+                    <label>Estimated Cost:</label>
+                    <span>$${parseFloat(data.estimate.estimated_cost_usd).toFixed(6)}</span>
+                </div>
+            </div>
+
+            <div class="usage-info">
+                <div class="usage-section">
+                    <label>Daily Usage:</label>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: ${data.usage.daily.percent_used}%"></div>
+                    </div>
+                    <small>${data.usage.daily.summaries_count} / ${data.usage.daily.limit} summaries (${data.usage.daily.percent_used.toFixed(1)}%)</small>
+                </div>
+
+                <div class="usage-section">
+                    <label>Monthly Budget:</label>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: ${data.usage.monthly.percent_used}%"></div>
+                    </div>
+                    <small>$${parseFloat(data.usage.monthly.cost_usd).toFixed(2)} / $${parseFloat(data.usage.monthly.limit_usd).toFixed(2)} (${data.usage.monthly.percent_used.toFixed(1)}%)</small>
+                </div>
+            </div>
+
+            ${data.warnings.length > 0 ? `
+                <div class="alert alert-warning">
+                    ${data.warnings.map(w => `<p>${w}</p>`).join('')}
+                </div>
+            ` : ''}
+        `;
+
+        document.getElementById('confirm-generate-btn').disabled = false;
+
+    } catch (error) {
+        console.error('Failed to fetch cost preview:', error);
+        document.getElementById('cost-preview-content').innerHTML = `
+            <div class="alert alert-danger">
+                Failed to load cost preview. Please try again.
+            </div>
+        `;
+    }
+}
+
+function closeCostModal() {
+    document.getElementById('cost-preview-modal').style.display = 'none';
+}
+
+async function confirmGenerate() {
+    // Disable confirm button to prevent double-clicks
+    const confirmBtn = document.getElementById('confirm-generate-btn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Starting...';
+
+    closeCostModal();
+
+    // Show progress modal
+    document.getElementById('progress-modal').style.display = 'flex';
+    document.getElementById('progress-message').textContent = 'Starting analysis...';
+    document.getElementById('progress-bar-fill').style.width = '0%';
+
+    // Get selected prompt IDs
+    const selectedPromptIds = Array.from(document.querySelectorAll('.prompt-checkbox:checked'))
+        .map(checkbox => parseInt(checkbox.value));
+
+    try {
+        const response = await fetch(`/books/${bookId}/summary/generate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            },
+            body: JSON.stringify({
+                model: selectedModel,
+                prompt_ids: selectedPromptIds
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.error || !data.success) {
+            alert('Error: ' + (data.error || 'Failed to start analysis'));
+            document.getElementById('progress-modal').style.display = 'none';
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirm & Generate';
+            return;
+        }
+
+        currentJobId = data.job_id;
+
+        // Poll for progress
+        pollProgress();
+
+    } catch (error) {
+        console.error('Failed to generate analysis:', error);
+        alert('Failed to generate analysis. Please try again.');
+        document.getElementById('progress-modal').style.display = 'none';
+    }
+}
+
+async function pollProgress() {
+    // Simple polling implementation (WebSocket would be better but this works)
+    const pollInterval = setInterval(async () => {
+        // For MVP, just show a generic progress message
+        // In production, you'd poll an endpoint or use WebSocket
+        // For now, wait 2 seconds per prompt and reload
+        const totalPrompts = {{ total_prompts }};
+        const estimatedTime = totalPrompts * 2; // 2 seconds per prompt
+
+        let elapsed = 0;
+        const updateInterval = setInterval(() => {
+            elapsed += 0.5;
+            const progress = Math.min((elapsed / estimatedTime) * 100, 95);
+            document.getElementById('progress-bar-fill').style.width = progress + '%';
+            document.getElementById('progress-message').textContent =
+                `Processing analysis... ${Math.round(progress)}% complete`;
+
+            if (elapsed >= estimatedTime) {
+                clearInterval(updateInterval);
+                // Reload page to show results
+                window.location.reload();
+            }
+        }, 500);
+
+        clearInterval(pollInterval);
+    }, 100);
+}
+</script>
+
+<style>
+.book-summary-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.book-info-section {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.book-info-section h2 {
+    font-size: var(--text-4xl, 2rem);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.author {
+    color: var(--text-secondary, #666);
+    font-size: var(--text-lg, 1.125rem);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    background: var(--bg-secondary, #f9f9f9);
+    border-radius: 8px;
+}
+
+.prompt-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    text-align: left;
+    display: inline-block;
+}
+
+.prompt-list li {
+    padding: 0.25rem 0;
+}
+
+.prompt-selection {
+    margin: 1.5rem auto;
+    max-width: 600px;
+    background: #fff;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.prompt-selection-header {
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border-color, #ddd);
+    font-weight: 600;
+}
+
+.prompt-selection-header label {
+    margin: 0;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.prompt-list-checkboxes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+}
+
+.prompt-list-checkboxes li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.prompt-list-checkboxes li:last-child {
+    border-bottom: none;
+}
+
+.prompt-list-checkboxes label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    margin: 0;
+}
+
+.prompt-list-checkboxes input[type="checkbox"] {
+    margin-right: 0.75rem;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.prompt-category {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #666);
+    font-style: italic;
+}
+
+.generate-section {
+    margin-top: 2rem;
+}
+
+.generate-section label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.regenerate-section {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color, #ddd);
+}
+
+.regenerate-section label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.version-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: var(--bg-secondary, #f5f5f5);
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #ddd);
+}
+
+.version-selector label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin: 0;
+    color: var(--text-primary, #333);
+}
+
+.version-select {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.version-select:hover {
+    border-color: var(--primary-color, #007bff);
+}
+
+.version-select:focus {
+    outline: none;
+    border-color: var(--primary-color, #007bff);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.analysis-meta {
+    background: var(--bg-secondary, #f9f9f9);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.accordion-item {
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.accordion-header {
+    margin: 0;
+}
+
+.accordion-button {
+    width: 100%;
+    padding: 1rem;
+    background: var(--bg-primary, #fff);
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.accordion-button:hover {
+    background: var(--bg-secondary, #f9f9f9);
+}
+
+.accordion-collapse {
+    display: none;
+}
+
+.accordion-collapse.show {
+    display: block;
+}
+
+.accordion-body {
+    padding: 1rem;
+    border-top: 1px solid var(--border-color, #ddd);
+}
+
+.summary-content {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.summary-meta {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color, #eee);
+    color: var(--text-secondary, #666);
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color, #ddd);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 1rem;
+}
+
+.modal-footer {
+    padding: 1rem;
+    border-top: 1px solid var(--border-color, #ddd);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: var(--bg-secondary, #f0f0f0);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--primary-color, #007bff);
+    transition: width 0.3s ease;
+}
+
+.alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.alert-warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+}
+
+.alert-danger {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+</style>
+{% endblock %}

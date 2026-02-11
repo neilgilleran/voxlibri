@@ -1,0 +1,43 @@
+{% load humanize %}
+
+<div class="book-card">
+    {% if book.cover_thumbnail %}
+        <img src="{{ book.cover_thumbnail.url }}" alt="{{ book.title }}" class="book-cover">
+    {% else %}
+        <div class="book-cover-placeholder">
+            <span class="icon-book">📚</span>
+        </div>
+    {% endif %}
+
+    <div class="book-info">
+        <h3 class="book-title">{{ book.title|truncatewords:10 }}</h3>
+        <p class="book-author">by {{ book.author }}</p>
+        <p class="book-meta">Added {{ book.uploaded_at|date:"M d, Y" }}</p>
+        {% if book.word_count %}
+            <p class="book-meta">{{ book.word_count|intcomma }} words</p>
+        {% endif %}
+
+        {% if book.status != 'completed' %}
+            <span class="status-badge status-{{ book.status }}">
+                {{ book.get_status_display }}
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="book-actions">
+        {% if book.book_type == 'fiction' %}
+            <a href="{% url 'fiction:book_detail' book.id %}" class="btn btn-primary btn-block">View</a>
+            <form method="post" action="{% url 'fiction:delete_book' book.id %}"
+                  onsubmit="return confirm('Are you sure you want to delete this book?');"
+                  style="margin-top: 0.5rem;">
+        {% else %}
+            <a href="{% url 'nonfiction:book_detail' book.id %}" class="btn btn-primary btn-block">View</a>
+            <form method="post" action="{% url 'nonfiction:delete_book' book.id %}"
+                  onsubmit="return confirm('Are you sure you want to delete this book?');"
+                  style="margin-top: 0.5rem;">
+        {% endif %}
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm btn-block">Delete</button>
+        </form>
+    </div>
+</div>

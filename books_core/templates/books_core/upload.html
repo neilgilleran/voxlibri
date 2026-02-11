@@ -1,0 +1,127 @@
+{% extends 'books_core/base.html' %}
+
+{% block title %}Upload Book - VoxLibri{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Upload Book</h1>
+    <a href="{% url 'nonfiction:library' %}" class="link-back">&larr; Back to Library</a>
+</div>
+
+<div class="upload-container">
+    <form method="post" enctype="multipart/form-data" id="upload-form" class="upload-form">
+        {% csrf_token %}
+
+        <div class="form-group book-type-group">
+            <label>Book Type</label>
+            <div class="book-type-options">
+                {% for value, label in form.book_type.field.choices %}
+                    <label class="book-type-option">
+                        <input type="radio" name="book_type" value="{{ value }}"
+                               {% if value == 'nonfiction' %}checked{% endif %}>
+                        <span class="option-label">{{ label }}</span>
+                        <span class="option-description">
+                            {% if value == 'nonfiction' %}
+                                Business, self-help, history, science, etc.
+                            {% else %}
+                                Novels, short stories, fantasy, sci-fi, etc.
+                            {% endif %}
+                        </span>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            {% if form.book_file.errors %}
+                <div class="error-messages">
+                    {% for error in form.book_file.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <label for="id_book_file">Select EPUB or PDF File</label>
+            {{ form.book_file }}
+            <p class="help-text">Supported formats: EPUB, PDF. Maximum file size: 50MB</p>
+        </div>
+
+        <div id="upload-progress" class="upload-progress" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p id="progress-text">Uploading and processing...</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-large" id="upload-button">Upload Book</button>
+    </form>
+</div>
+
+<style>
+.book-type-group {
+    margin-bottom: 1.5rem;
+}
+
+.book-type-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.book-type-option {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    border: 2px solid var(--gray-200);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.book-type-option:hover {
+    border-color: var(--primary-blue);
+    background: var(--gray-50);
+}
+
+.book-type-option:has(input:checked) {
+    border-color: var(--primary-blue);
+    background: #e0f2fe;
+}
+
+.book-type-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.option-label {
+    font-weight: 600;
+    font-size: var(--text-lg);
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.option-description {
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+}
+
+@media (max-width: 480px) {
+    .book-type-options {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        // Show progress indicator
+        document.getElementById('upload-progress').style.display = 'block';
+        document.getElementById('upload-button').disabled = true;
+        document.getElementById('upload-button').textContent = 'Processing...';
+    });
+</script>
+{% endblock %}

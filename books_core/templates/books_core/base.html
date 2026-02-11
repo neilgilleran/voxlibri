@@ -1,0 +1,66 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}VoxLibri{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'books_core/css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'books_core/css/components.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Global Header -->
+    <header class="global-header">
+        <div class="container">
+            <a href="{% url 'nonfiction:library' %}" class="logo">
+                <span class="icon-book">📚</span> Vox Libri
+            </a>
+            <nav class="main-nav">
+                <a href="{% url 'nonfiction:library' %}" class="nav-tab {% if section == 'nonfiction' or not section %}active{% endif %}">Non-Fiction</a>
+                <a href="{% url 'fiction:library' %}" class="nav-tab {% if section == 'fiction' %}active{% endif %}">Fiction</a>
+                <span class="nav-divider">|</span>
+                <a href="{% url 'settings' %}">Settings</a>
+            </nav>
+            <a href="{% url 'upload_book' %}" class="btn btn-primary">Upload Book</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="message message-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Global Footer -->
+    <footer class="global-footer">
+        <div class="container">
+            <p>Vox Libri - Giving voice to the wisdom in your books</p>
+        </div>
+    </footer>
+
+    <script src="{% static 'books_core/js/main.js' %}"></script>
+    <!-- Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Render markdown content on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-markdown]').forEach(function(el) {
+                el.innerHTML = marked.parse(el.textContent);
+            });
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,144 @@
+{% extends 'books_core/base.html' %}
+{% load static %}
+
+{% block title %}My Library - VoxLibri{% endblock %}
+
+{% block content %}
+<div class="library-header">
+    <div>
+        <h1>My Library</h1>
+        <p class="subtitle">{{ book_count }} book{{ book_count|pluralize }} in your collection</p>
+    </div>
+
+    <div class="library-controls">
+        <select name="sort" id="sort-select" class="form-select">
+            <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest First</option>
+            <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest First</option>
+            <option value="title_az" {% if current_sort == 'title_az' %}selected{% endif %}>Title A-Z</option>
+            <option value="title_za" {% if current_sort == 'title_za' %}selected{% endif %}>Title Z-A</option>
+            <option value="author_az" {% if current_sort == 'author_az' %}selected{% endif %}>Author A-Z</option>
+        </select>
+    </div>
+</div>
+
+<div class="books-grid">
+    {% for book in books %}
+        {% include 'books_core/partials/book_card.html' with book=book %}
+    {% empty %}
+        <div class="empty-state">
+            <p>No books in your library yet.</p>
+            <a href="{% url 'upload_book' %}" class="btn btn-primary">Upload Your First Book</a>
+        </div>
+    {% endfor %}
+</div>
+
+<style>
+.library-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+}
+
+.subtitle {
+    color: var(--gray-500);
+    font-size: var(--text-base);
+    margin-top: 0.5rem;
+}
+
+.library-controls select {
+    padding: 0.5rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 0.375rem;
+    font-size: var(--text-base);
+}
+
+.books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+}
+
+.book-card {
+    background-color: var(--white);
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.book-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.book-cover {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+}
+
+.book-cover-placeholder {
+    width: 100%;
+    height: 300px;
+    background-color: var(--gray-200);
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.book-info {
+    margin-bottom: 1rem;
+}
+
+.book-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--gray-900);
+}
+
+.book-author {
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+    margin-bottom: 0.25rem;
+}
+
+.book-meta {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    margin-bottom: 0.25rem;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.empty-state p {
+    font-size: var(--text-lg);
+    color: var(--gray-700);
+    margin-bottom: 1.5rem;
+}
+</style>
+
+<script>
+document.getElementById('sort-select').addEventListener('change', function() {
+    const url = new URL(window.location);
+    url.searchParams.set('sort', this.value);
+    window.location = url;
+});
+</script>
+{% endblock %}

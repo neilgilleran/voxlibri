@@ -1,0 +1,584 @@
+/*
+ * VoxLibri Modal Styles
+ * Phase 6: Modals & Real-Time Progress
+ */
+
+/* ==========================================================================
+   MODAL OVERLAY & CONTAINER
+   ========================================================================== */
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-in;
+}
+
+.modal-overlay.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-container {
+    background-color: var(--white);
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Modal Header */
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-title {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: var(--text-2xl);
+    color: var(--gray-500);
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+    transition: color 0.2s;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+}
+
+.modal-close:hover {
+    color: var(--gray-900);
+    background-color: var(--gray-100);
+}
+
+/* Modal Body */
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Modal Footer */
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+/* ==========================================================================
+   COST PREVIEW MODAL
+   ========================================================================== */
+
+.cost-breakdown {
+    background-color: var(--gray-50);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.cost-breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-size: var(--text-sm);
+}
+
+.cost-breakdown-item:not(:last-child) {
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.cost-breakdown-label {
+    color: var(--gray-700);
+    font-weight: 500;
+}
+
+.cost-breakdown-value {
+    color: var(--gray-900);
+    font-weight: 600;
+}
+
+.cost-breakdown-value.cost-amount {
+    font-size: var(--text-lg);
+    color: var(--primary-blue);
+}
+
+/* Usage Stats Section */
+.usage-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.usage-stat-card {
+    background-color: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+
+.usage-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.usage-stat-label {
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+    font-weight: 500;
+}
+
+.usage-stat-value {
+    font-size: var(--text-lg);
+    color: var(--gray-900);
+    font-weight: 600;
+}
+
+/* Usage Progress Bar */
+.usage-progress {
+    width: 100%;
+    height: 8px;
+    background-color: var(--gray-200);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.usage-progress-bar {
+    height: 100%;
+    background-color: var(--success-green);
+    transition: width 0.3s ease, background-color 0.3s ease;
+    border-radius: 4px;
+}
+
+.usage-progress-bar.warning {
+    background-color: var(--warning-yellow);
+}
+
+.usage-progress-bar.danger {
+    background-color: var(--danger-red);
+}
+
+.usage-remaining {
+    font-size: var(--text-xs);
+    color: var(--gray-600);
+    text-align: right;
+}
+
+/* Warning Messages */
+.warning-messages {
+    margin-bottom: 1.5rem;
+}
+
+.warning-alert {
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    border-left: 4px solid var(--warning-yellow);
+    background-color: #fff3cd;
+    color: #856404;
+    font-size: var(--text-sm);
+    margin-bottom: 0.5rem;
+}
+
+.warning-alert:last-child {
+    margin-bottom: 0;
+}
+
+.warning-alert.danger {
+    border-left-color: var(--danger-red);
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.warning-alert.info {
+    border-left-color: var(--primary-blue);
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* ==========================================================================
+   BATCH PREVIEW MODAL
+   ========================================================================== */
+
+.batch-summary {
+    background-color: var(--gray-50);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.batch-summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-size: var(--text-sm);
+}
+
+.batch-summary-label {
+    color: var(--gray-700);
+    font-weight: 500;
+}
+
+.batch-summary-value {
+    color: var(--gray-900);
+    font-weight: 600;
+    font-size: var(--text-lg);
+}
+
+/* Chapter List in Batch Modal */
+.batch-chapters-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.375rem;
+    margin-bottom: 1.5rem;
+}
+
+.batch-chapter-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.batch-chapter-item:last-child {
+    border-bottom: none;
+}
+
+.batch-chapter-number {
+    font-weight: 600;
+    color: var(--primary-blue);
+    min-width: 3rem;
+    font-size: var(--text-sm);
+}
+
+.batch-chapter-title {
+    flex: 1;
+    color: var(--gray-900);
+    font-size: var(--text-sm);
+}
+
+.batch-chapter-cost {
+    color: var(--gray-600);
+    font-size: var(--text-xs);
+    font-weight: 500;
+}
+
+/* ==========================================================================
+   BATCH PROGRESS MODAL
+   ========================================================================== */
+
+.progress-container {
+    margin-bottom: 1.5rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.progress-label {
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+    font-weight: 500;
+}
+
+.progress-percentage {
+    font-size: var(--text-lg);
+    color: var(--primary-blue);
+    font-weight: 600;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background-color: var(--gray-200);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--primary-blue);
+    transition: width 0.3s ease;
+    border-radius: 6px;
+}
+
+.progress-bar.completed {
+    background-color: var(--success-green);
+}
+
+/* Progress Items List */
+.progress-items-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.375rem;
+}
+
+.progress-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.progress-item:last-child {
+    border-bottom: none;
+}
+
+.progress-item-status {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.progress-item-status.pending {
+    background-color: var(--gray-300);
+    color: var(--gray-600);
+}
+
+.progress-item-status.processing {
+    background-color: var(--warning-yellow);
+    color: var(--white);
+    animation: pulse 1.5s infinite;
+}
+
+.progress-item-status.success {
+    background-color: var(--success-green);
+    color: var(--white);
+}
+
+.progress-item-status.error {
+    background-color: var(--danger-red);
+    color: var(--white);
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.progress-item-chapter {
+    flex: 1;
+}
+
+.progress-item-title {
+    font-size: var(--text-sm);
+    color: var(--gray-900);
+    font-weight: 500;
+}
+
+.progress-item-message {
+    font-size: var(--text-xs);
+    color: var(--gray-600);
+    margin-top: 0.25rem;
+}
+
+.progress-item-message.error {
+    color: var(--danger-red);
+}
+
+/* ==========================================================================
+   VERSION COMPARISON MODAL
+   ========================================================================== */
+
+.comparison-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .comparison-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.version-column {
+    border: 1px solid var(--gray-200);
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.version-header {
+    background-color: var(--gray-100);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.version-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.version-metadata {
+    font-size: var(--text-xs);
+    color: var(--gray-600);
+}
+
+.version-content {
+    padding: 1rem;
+    background-color: var(--white);
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+}
+
+.version-content p {
+    margin-bottom: 0.75rem;
+}
+
+.version-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Version Selector in Comparison Modal */
+.version-selector-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.version-selector-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.version-selector-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .version-selector-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   LOADING STATE
+   ========================================================================== */
+
+.modal-loading {
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+.spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--gray-200);
+    border-top-color: var(--primary-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .modal-container {
+        max-width: 100%;
+        margin: 1rem;
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: 1rem;
+    }
+
+    .modal-footer {
+        flex-direction: column;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+    }
+}

@@ -1,0 +1,658 @@
+{% extends 'books_core/base.html' %}
+{% load humanize %}
+
+{% block title %}{{ book.title }} - Analysis Report{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Book Analysis Report</h1>
+    <div class="page-actions">
+        <a href="{% url 'nonfiction:book_detail' book.id %}" class="link-back">Back to Book Details</a>
+        {% if has_analysis %}
+        <a href="{% url 'nonfiction:export_report_epub' book.id %}" class="btn btn-export">Download EPUB</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="report-container">
+    <!-- Book Info -->
+    <div class="book-info-section">
+        <h2>{{ book.title }}</h2>
+        <p class="author">by {{ book.author }}</p>
+    </div>
+
+    {% if has_analysis %}
+    <!-- Aggregate Rating Card -->
+    <div class="aggregate-section">
+        <div class="aggregate-card">
+            <div class="overall-score">
+                <span class="score-value">{{ book_rating.overall_avg }}</span>
+                <span class="score-max">/10</span>
+            </div>
+            <div class="verdict">{{ book_rating.verdict }}</div>
+
+            <div class="criteria-grid">
+                <div class="criterion">
+                    <span class="criterion-label">Insight</span>
+                    <span class="criterion-value">{{ book_rating.insight_avg }}</span>
+                </div>
+                <div class="criterion">
+                    <span class="criterion-label">Clarity</span>
+                    <span class="criterion-value">{{ book_rating.clarity_avg }}</span>
+                </div>
+                <div class="criterion">
+                    <span class="criterion-label">Evidence</span>
+                    <span class="criterion-value">{{ book_rating.evidence_avg }}</span>
+                </div>
+                <div class="criterion">
+                    <span class="criterion-label">Engagement</span>
+                    <span class="criterion-value">{{ book_rating.engagement_avg }}</span>
+                </div>
+                <div class="criterion">
+                    <span class="criterion-label">Actionability</span>
+                    <span class="criterion-value">{{ book_rating.actionability_avg }}</span>
+                </div>
+            </div>
+
+            <div class="analysis-meta">
+                {{ book_rating.chapters_analyzed }} chapters analyzed |
+                Model: {{ book_rating.model_used }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Best/Worst Chapters -->
+    {% if book_rating.best_chapter or book_rating.worst_chapter %}
+    <div class="highlights-section">
+        {% if book_rating.best_chapter %}
+        <div class="highlight-card best">
+            <span class="highlight-label">Best Chapter</span>
+            <span class="highlight-title">
+                Ch. {{ book_rating.best_chapter.number }}: {{ book_rating.best_chapter.title|default:"Untitled" }}
+            </span>
+            <span class="highlight-score">{{ book_rating.best_chapter.score }}/10</span>
+        </div>
+        {% endif %}
+        {% if book_rating.worst_chapter %}
+        <div class="highlight-card worst">
+            <span class="highlight-label">Weakest Chapter</span>
+            <span class="highlight-title">
+                Ch. {{ book_rating.worst_chapter.number }}: {{ book_rating.worst_chapter.title|default:"Untitled" }}
+            </span>
+            <span class="highlight-score">{{ book_rating.worst_chapter.score }}/10</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if has_essence %}
+    <!-- Book Essence Section -->
+    <div class="book-essence-section">
+        <h3>Book Essence</h3>
+        <p class="section-subtitle">The gold from this book - thesis, stories, advice, and insights worth remembering</p>
+
+        <div class="essence-tabs">
+            {% if book_essence.book_thesis %}
+            <button class="essence-tab active" data-tab="overview">Book Overview</button>
+            <button class="essence-tab" data-tab="wisdom">Wisdom</button>
+            {% else %}
+            <button class="essence-tab active" data-tab="wisdom">Wisdom</button>
+            {% endif %}
+            <button class="essence-tab" data-tab="references">References</button>
+        </div>
+
+        <div class="essence-content">
+            {% if book_essence.book_thesis %}
+            <div class="essence-panel active" id="panel-overview">
+                <div class="essence-text" data-markdown>{{ book_essence.book_thesis.content }}</div>
+                <div class="essence-meta">
+                    AI-synthesized from {{ book_essence.book_thesis.chapters_included }} chapter summaries
+                </div>
+            </div>
+            {% endif %}
+
+            {% if book_essence.wisdom %}
+            <div class="essence-panel{% if not book_essence.book_thesis %} active{% endif %}" id="panel-wisdom">
+                <div class="essence-text" data-markdown>{{ book_essence.wisdom.content }}</div>
+                <div class="essence-meta">
+                    {% if book_essence.wisdom.is_concatenated %}
+                    Compiled from {{ book_essence.wisdom.chapters_included }} chapters
+                    {% else %}
+                    Curated from {{ book_essence.wisdom.chapters_included }} chapters
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if book_essence.references %}
+            <div class="essence-panel" id="panel-references">
+                <div class="essence-text" data-markdown>{{ book_essence.references.content }}</div>
+                <div class="essence-meta">
+                    Compiled from {{ book_essence.references.chapters_included }} chapters
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Chapter-by-Chapter Breakdown -->
+    <div class="chapters-section">
+        <h3>Chapter-by-Chapter Analysis</h3>
+
+        <div class="chapters-accordion">
+            {% for chapter in chapter_analyses %}
+            <div class="accordion-item">
+                <button class="accordion-header" onclick="toggleAccordion(this)">
+                    <div class="header-left">
+                        <span class="chapter-number">{{ chapter.chapter_number }}</span>
+                        <span class="chapter-title">{{ chapter.title }}</span>
+                    </div>
+                    <div class="header-right">
+                        {% if chapter.rating %}
+                        <span class="chapter-score">{{ chapter.rating.overall }}/10</span>
+                        {% else %}
+                        <span class="chapter-score no-rating">--</span>
+                        {% endif %}
+                        <span class="accordion-icon">+</span>
+                    </div>
+                </button>
+                <div class="accordion-content">
+                    {% if chapter.summary %}
+                    <div class="content-section">
+                        <h4>Summary</h4>
+                        <div class="summary-content" data-markdown>{{ chapter.summary.content }}</div>
+                    </div>
+                    {% endif %}
+
+                    {% if chapter.rating %}
+                    <div class="content-section">
+                        <h4>Rating</h4>
+                        <div class="rating-details">
+                            <div class="rating-row">
+                                <span>Insight:</span>
+                                <span>{{ chapter.rating.insight }}/10</span>
+                            </div>
+                            <div class="rating-row">
+                                <span>Clarity:</span>
+                                <span>{{ chapter.rating.clarity }}/10</span>
+                            </div>
+                            <div class="rating-row">
+                                <span>Evidence:</span>
+                                <span>{{ chapter.rating.evidence }}/10</span>
+                            </div>
+                            <div class="rating-row">
+                                <span>Engagement:</span>
+                                <span>{{ chapter.rating.engagement }}/10</span>
+                            </div>
+                            <div class="rating-row">
+                                <span>Actionability:</span>
+                                <span>{{ chapter.rating.actionability }}/10</span>
+                            </div>
+                            <div class="rating-row overall">
+                                <span>Overall:</span>
+                                <span>{{ chapter.rating.overall }}/10</span>
+                            </div>
+                        </div>
+                        {% if chapter.rating.one_line_verdict %}
+                        <div class="chapter-verdict">{{ chapter.rating.one_line_verdict }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if not chapter.summary and not chapter.rating %}
+                    <p class="no-analysis">No analysis available for this chapter.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <p class="empty-state">No chapters found for this book.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% else %}
+    <!-- No Analysis Yet -->
+    <div class="empty-state-section">
+        <p>This book has not been analyzed yet.</p>
+        <a href="{% url 'nonfiction:book_detail' book.id %}" class="btn btn-primary">
+            Go to Book Details to Analyze
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.report-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.book-info-section {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.book-info-section h2 {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.book-info-section .author {
+    font-size: var(--text-lg);
+    color: var(--gray-600);
+}
+
+/* Aggregate Card */
+.aggregate-section {
+    margin-bottom: 2rem;
+}
+
+.aggregate-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid var(--gray-200);
+    border-radius: 1rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.overall-score {
+    margin-bottom: 1rem;
+}
+
+.overall-score .score-value {
+    font-size: 5rem;
+    font-weight: 700;
+    color: var(--gray-900);
+}
+
+.overall-score .score-max {
+    font-size: 2rem;
+    color: var(--gray-500);
+}
+
+.verdict {
+    font-size: var(--text-lg);
+    color: var(--gray-700);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.criteria-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.criterion {
+    background: white;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    min-width: 120px;
+}
+
+.criterion-label {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    text-transform: uppercase;
+}
+
+.criterion-value {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.analysis-meta {
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+}
+
+/* Highlights */
+.highlights-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.highlight-card {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.highlight-card.best {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.highlight-card.worst {
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+}
+
+.highlight-label {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.highlight-title {
+    font-size: var(--text-base);
+}
+
+.highlight-score {
+    font-weight: 600;
+}
+
+/* Chapters Section */
+.chapters-section {
+    margin-bottom: 2rem;
+}
+
+.chapters-section h3 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.chapters-accordion {
+    border: 1px solid var(--gray-200);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.accordion-item {
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.accordion-item:last-child {
+    border-bottom: none;
+}
+
+.accordion-header {
+    width: 100%;
+    padding: 1rem;
+    background: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    font-size: var(--text-base);
+}
+
+.accordion-header:hover {
+    background-color: var(--gray-50);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.chapter-number {
+    background-color: var(--gray-200);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    font-size: var(--text-sm);
+}
+
+.chapter-score {
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.chapter-score.no-rating {
+    color: var(--gray-400);
+}
+
+.accordion-icon {
+    font-size: 1.25rem;
+    color: var(--gray-500);
+    transition: transform 0.2s;
+}
+
+.accordion-item.open .accordion-icon {
+    transform: rotate(45deg);
+}
+
+.accordion-content {
+    display: none;
+    padding: 1rem;
+    border-top: 1px solid var(--gray-200);
+    background-color: var(--gray-50);
+}
+
+.accordion-item.open .accordion-content {
+    display: block;
+}
+
+.content-section {
+    margin-bottom: 1.5rem;
+}
+
+.content-section:last-child {
+    margin-bottom: 0;
+}
+
+.content-section h4 {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+.summary-content {
+    background: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    line-height: 1.6;
+}
+
+.rating-details {
+    background: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.rating-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.rating-row:last-child {
+    border-bottom: none;
+}
+
+.rating-row.overall {
+    font-weight: 600;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 2px solid var(--gray-200);
+}
+
+.chapter-verdict {
+    margin-top: 1rem;
+    font-style: italic;
+    color: var(--gray-600);
+}
+
+.no-analysis {
+    color: var(--gray-500);
+    font-style: italic;
+}
+
+.empty-state-section {
+    text-align: center;
+    padding: 3rem;
+    background: var(--gray-50);
+    border-radius: 0.5rem;
+}
+
+.empty-state {
+    color: var(--gray-500);
+    padding: 2rem;
+    text-align: center;
+}
+
+/* Book Essence Section */
+.book-essence-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.75rem;
+}
+
+.book-essence-section h3 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.section-subtitle {
+    color: var(--gray-600);
+    font-size: var(--text-sm);
+    margin-bottom: 1.5rem;
+}
+
+.essence-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--gray-200);
+    margin-bottom: 1.5rem;
+}
+
+.essence-tab {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: var(--text-base);
+    color: var(--gray-600);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.essence-tab:hover {
+    color: var(--gray-900);
+}
+
+.essence-tab.active {
+    color: var(--gray-900);
+    font-weight: 600;
+    border-bottom-color: var(--gray-900);
+}
+
+.essence-panel {
+    display: none;
+}
+
+.essence-panel.active {
+    display: block;
+}
+
+.essence-text {
+    line-height: 1.7;
+    max-width: 800px;
+}
+
+.essence-text h2,
+.essence-text strong {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    display: block;
+}
+
+.essence-text h3 {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.essence-meta {
+    margin-top: 1.5rem;
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+/* Page actions */
+.page-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--gray-100);
+    border: 1px solid var(--gray-300);
+    border-radius: 0.375rem;
+    text-decoration: none;
+    color: var(--gray-700);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    transition: background-color 0.15s;
+}
+
+.btn-export:hover {
+    background-color: var(--gray-200);
+    color: var(--gray-800);
+}
+</style>
+
+<script>
+function toggleAccordion(button) {
+    const item = button.closest('.accordion-item');
+    item.classList.toggle('open');
+}
+
+// Book Essence tab switching
+document.querySelectorAll('.essence-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        // Remove active from all tabs and panels
+        document.querySelectorAll('.essence-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.essence-panel').forEach(p => p.classList.remove('active'));
+
+        // Activate clicked tab and corresponding panel
+        tab.classList.add('active');
+        const panelId = 'panel-' + tab.dataset.tab;
+        const panel = document.getElementById(panelId);
+        if (panel) {
+            panel.classList.add('active');
+        }
+    });
+});
+</script>
+{% endblock %}

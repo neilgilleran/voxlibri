@@ -1,0 +1,384 @@
+{% extends 'books_core/base.html' %}
+{% load static %}
+
+{% block title %}Settings - VoxLibri{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <div class="settings-header">
+        <h1>Settings</h1>
+        <p class="subtitle">Manage AI features and cost limits</p>
+    </div>
+
+    <!-- Usage Dashboard -->
+    <div class="usage-dashboard">
+        <h2>Current Usage</h2>
+
+        <div class="usage-cards">
+            <!-- Daily Usage Card -->
+            <div class="usage-card">
+                <h3>Daily Summaries</h3>
+                <div class="usage-stats">
+                    <div class="usage-count">
+                        <span class="count">{{ usage.daily_count }}</span>
+                        <span class="limit">/ {{ usage.daily_limit }}</span>
+                    </div>
+                    <div class="usage-remaining">
+                        {{ usage.daily_remaining }} remaining
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill {% if usage.daily_percentage >= 90 %}danger{% elif usage.daily_percentage >= 80 %}warning{% else %}success{% endif %}"
+                         style="width: {{ usage.daily_percentage }}%"></div>
+                </div>
+                <div class="progress-label">{{ usage.daily_percentage }}% used</div>
+            </div>
+
+            <!-- Monthly Cost Card -->
+            <div class="usage-card">
+                <h3>Monthly Budget</h3>
+                <div class="usage-stats">
+                    <div class="usage-count">
+                        <span class="count">${{ usage.monthly_cost|floatformat:2 }}</span>
+                        <span class="limit">/ ${{ usage.monthly_limit|floatformat:2 }}</span>
+                    </div>
+                    <div class="usage-remaining">
+                        ${{ usage.monthly_remaining|floatformat:2 }} remaining
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill {% if usage.monthly_percentage >= 90 %}danger{% elif usage.monthly_percentage >= 80 %}warning{% else %}success{% endif %}"
+                         style="width: {{ usage.monthly_percentage }}%"></div>
+                </div>
+                <div class="progress-label">{{ usage.monthly_percentage }}% used</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Form -->
+    <div class="settings-form-container">
+        <h2>Configuration</h2>
+
+        <form method="post" class="settings-form">
+            {% csrf_token %}
+
+            <div class="form-section">
+                <h3>Cost Limits</h3>
+
+                <div class="form-group">
+                    <label for="{{ form.monthly_limit_usd.id_for_label }}">
+                        {{ form.monthly_limit_usd.label }}
+                    </label>
+                    {{ form.monthly_limit_usd }}
+                    {% if form.monthly_limit_usd.help_text %}
+                        <small class="form-help">{{ form.monthly_limit_usd.help_text }}</small>
+                    {% endif %}
+                    {% if form.monthly_limit_usd.errors %}
+                        <div class="form-errors">
+                            {{ form.monthly_limit_usd.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.daily_summary_limit.id_for_label }}">
+                        {{ form.daily_summary_limit.label }}
+                    </label>
+                    {{ form.daily_summary_limit }}
+                    {% if form.daily_summary_limit.help_text %}
+                        <small class="form-help">{{ form.daily_summary_limit.help_text }}</small>
+                    {% endif %}
+                    {% if form.daily_summary_limit.errors %}
+                        <div class="form-errors">
+                            {{ form.daily_summary_limit.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>AI Configuration</h3>
+
+                <div class="form-group">
+                    <label for="{{ form.default_model.id_for_label }}">
+                        {{ form.default_model.label }}
+                    </label>
+                    {{ form.default_model }}
+                    {% if form.default_model.help_text %}
+                        <small class="form-help">{{ form.default_model.help_text }}</small>
+                    {% endif %}
+                    {% if form.default_model.errors %}
+                        <div class="form-errors">
+                            {{ form.default_model.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        {{ form.ai_features_enabled }}
+                        {{ form.ai_features_enabled.label }}
+                    </label>
+                    {% if form.ai_features_enabled.help_text %}
+                        <small class="form-help">{{ form.ai_features_enabled.help_text }}</small>
+                    {% endif %}
+                    {% if form.ai_features_enabled.errors %}
+                        <div class="form-errors">
+                            {{ form.ai_features_enabled.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+                <a href="{% url 'library' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.settings-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.settings-header {
+    margin-bottom: 2rem;
+}
+
+.settings-header h1 {
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: var(--gray-500);
+    font-size: var(--text-base);
+}
+
+/* Usage Dashboard */
+.usage-dashboard {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.usage-dashboard h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: var(--text-xl);
+}
+
+.usage-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.usage-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.usage-card h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: var(--text-lg);
+    color: var(--gray-700);
+}
+
+.usage-stats {
+    margin-bottom: 1rem;
+}
+
+.usage-count {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+}
+
+.usage-count .count {
+    color: var(--gray-900);
+}
+
+.usage-count .limit {
+    color: var(--gray-500);
+}
+
+.usage-remaining {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+    margin-top: 0.25rem;
+}
+
+.progress-bar {
+    height: 8px;
+    background: var(--gray-200);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    animation: none;
+}
+
+.progress-fill.success {
+    background: var(--success-green);
+}
+
+.progress-fill.warning {
+    background: var(--warning-yellow);
+}
+
+.progress-fill.danger {
+    background: var(--danger-red);
+}
+
+.progress-label {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+}
+
+/* Settings Form */
+.settings-form-container {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 2rem;
+}
+
+.settings-form-container h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: var(--text-xl);
+}
+
+.form-section {
+    margin-bottom: 2rem;
+}
+
+.form-section h3 {
+    font-size: var(--text-lg);
+    margin-bottom: 1rem;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-200);
+    padding-bottom: 0.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 4px;
+    font-size: var(--text-base);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-help {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+}
+
+.form-errors {
+    margin-top: 0.25rem;
+    color: var(--danger-red);
+    font-size: var(--text-sm);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.form-check-input {
+    width: auto;
+    cursor: pointer;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.btn {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    font-size: var(--text-base);
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: var(--primary-blue);
+    color: var(--white);
+}
+
+.btn-primary:hover {
+    background: var(--primary-blue-hover);
+}
+
+.btn-secondary {
+    background: var(--gray-200);
+    color: var(--gray-700);
+}
+
+.btn-secondary:hover {
+    background: var(--gray-300);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .usage-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
+{% endblock %}

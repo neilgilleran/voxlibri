@@ -1,0 +1,241 @@
+{% extends 'books_core/base.html' %}
+{% load humanize %}
+
+{% block title %}{{ book.title }} - VoxLibri{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Book Details</h1>
+    <a href="{% url 'fiction:library' %}" class="link-back">&larr; Back to Fiction Library</a>
+</div>
+
+<div class="book-detail-container">
+    <div class="book-info-section">
+        <h2>{{ book.title }}</h2>
+        <p class="author">by {{ book.author }}</p>
+        <span class="book-type-badge fiction">Fiction</span>
+    </div>
+
+    <div class="metadata-cards">
+        <div class="metadata-card">
+            <label>Upload Date</label>
+            <div class="value">{{ book.uploaded_at|date:"M d, Y" }}</div>
+        </div>
+
+        <div class="metadata-card">
+            <label>Word Count</label>
+            <div class="value">{{ book.word_count|intcomma }}</div>
+        </div>
+
+        <div class="metadata-card">
+            <label>Chapters</label>
+            <div class="value">{{ chapter_count }}</div>
+        </div>
+    </div>
+
+    {% if book.status == 'failed' %}
+        <div class="error-message">
+            <strong>Processing Error:</strong>
+            <p>{{ book.error_message }}</p>
+        </div>
+    {% endif %}
+
+    {% if book.status == 'completed' %}
+        <div class="chapters-section">
+            <h3>Chapters</h3>
+            <div class="chapters-list">
+                {% for chapter in chapters %}
+                    <div class="chapter-item">
+                        <div class="chapter-info">
+                            <span class="chapter-number">{{ chapter.chapter_number }}</span>
+                            <span class="chapter-title">
+                                {% if chapter.title %}
+                                    {{ chapter.title }}
+                                {% else %}
+                                    Chapter {{ chapter.chapter_number }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="chapter-meta">
+                            <span class="word-count">{{ chapter.word_count }} words</span>
+                            <a href="{% url 'fiction:reading_view_chapter' book.id chapter.chapter_number %}"
+                               class="btn btn-sm">Read</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="action-buttons">
+        {% if book.status == 'completed' %}
+            <a href="{% url 'fiction:reading_view' book.id %}" class="btn btn-primary">
+                Read Book
+            </a>
+            <a href="{% url 'fiction:resume_reading' book.id %}" class="btn btn-secondary">
+                Resume Reading
+            </a>
+        {% endif %}
+
+        <form method="post" action="{% url 'fiction:delete_book' book.id %}"
+              onsubmit="return confirm('Are you sure you want to delete this book?');" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                Delete Book
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+.book-detail-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.book-info-section {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.book-info-section h2 {
+    font-size: var(--text-4xl);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.book-info-section .author {
+    font-size: var(--text-xl);
+    color: var(--gray-700);
+    margin-bottom: 1rem;
+}
+
+.book-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: var(--text-sm);
+    font-weight: 500;
+}
+
+.book-type-badge.fiction {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+.metadata-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.metadata-card {
+    background-color: var(--gray-50);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.metadata-card label {
+    display: block;
+    text-transform: uppercase;
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.metadata-card .value {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.chapters-section {
+    margin-bottom: 2rem;
+}
+
+.chapters-section h3 {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.chapters-list {
+    background-color: var(--white);
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.chapter-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.chapter-item:last-child {
+    border-bottom: none;
+}
+
+.chapter-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+.chapter-number {
+    background-color: var(--gray-200);
+    color: var(--gray-900);
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: var(--text-sm);
+}
+
+.chapter-title {
+    font-size: var(--text-base);
+    color: var(--gray-900);
+}
+
+.chapter-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.word-count {
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+.error-message strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #842029;
+}
+
+.error-message p {
+    color: #842029;
+}
+</style>
+{% endblock %}

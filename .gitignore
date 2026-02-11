@@ -1,0 +1,48 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Django
+*.sqlite3
+db.sqlite3
+*.log
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.claude/
+
+# Media & Uploads (user data)
+media/books/*
+!media/books/.gitkeep
+!media/books/sample/
+
+# Testing
+test_epubs/
+.pytest_cache/
+.coverage
+htmlcov/
+.playwright-mcp/
+
+# IDE & System
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Static files (generated)
+staticfiles/
+
+# Temporary
+*.tmp
+summ.md

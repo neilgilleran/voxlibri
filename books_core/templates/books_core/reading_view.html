@@ -1,0 +1,297 @@
+{% extends 'books_core/base.html' %}
+{% load static markdown_extras %}
+
+{% block title %}{{ book.title }} - Chapter {{ chapter.chapter_number }} - VoxLibri{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'books_core/css/reading.css' %}">
+<link rel="stylesheet" href="{% static 'books_core/css/modals.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="reading-header">
+    <div>
+        <a href="{% url 'book_detail' book.id %}" class="link-back">← Back to Book Details</a>
+        <h1>{{ book.title }}</h1>
+        <p class="reading-progress">Chapter {{ chapter.chapter_number }} of {{ chapter_count }}</p>
+    </div>
+
+    <button id="toggle-nav" class="btn-icon" aria-label="Toggle chapter navigation">
+        <span class="icon-menu">☰</span>
+    </button>
+</div>
+
+<div class="reading-container-3col">
+    <!-- LEFT COLUMN: Chapter Navigation -->
+    <aside id="chapter-nav" class="chapter-navigation-enhanced">
+        <div class="nav-header">
+            <h3>Chapters</h3>
+            <div class="batch-controls">
+                <button id="select-all" class="btn-text" type="button">Select All</button>
+                <button id="deselect-all" class="btn-text" type="button">Deselect All</button>
+            </div>
+        </div>
+
+        <ul class="chapter-list">
+            {% for ch in chapters %}
+                <li class="chapter-list-item {% if ch.chapter_number == chapter.chapter_number %}active{% endif %}">
+                    <label class="chapter-checkbox-wrapper">
+                        <input
+                            type="checkbox"
+                            class="chapter-checkbox"
+                            data-chapter-id="{{ ch.id }}"
+                            data-chapter-number="{{ ch.chapter_number }}"
+                            aria-label="Select chapter {{ ch.chapter_number }} for batch processing"
+                        >
+                    </label>
+                    <a href="{% url 'reading_view_chapter' book.id ch.chapter_number %}" class="chapter-link">
+                        <span class="chapter-number">{{ ch.chapter_number }}</span>
+                        <span class="chapter-title">
+                            {{ ch.title|default:"Chapter "|add:ch.chapter_number|truncatewords:8 }}
+                        </span>
+                        {% if ch.has_summary %}
+                            <span class="summary-indicator" title="Has summaries">✓</span>
+                        {% endif %}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <div class="batch-action">
+            <button
+                id="batch-generate"
+                class="btn btn-primary btn-block"
+                type="button"
+                disabled
+                aria-label="Generate summaries for selected chapters"
+            >
+                Batch Generate
+            </button>
+            <p class="batch-count-text" id="batch-count-text">No chapters selected</p>
+        </div>
+    </aside>
+
+    <!-- Resize handle between left and center -->
+    <div class="resize-handle" id="resize-left" aria-label="Resize left column"></div>
+
+    <!-- CENTER COLUMN: Chapter Content -->
+    <main class="reading-content-column">
+        <article>
+            {% if chapter.title %}
+                <h2>{{ chapter.title }}</h2>
+            {% endif %}
+
+            <div class="chapter-text">
+                {{ chapter.content|markdown }}
+            </div>
+        </article>
+
+        <nav class="chapter-pagination">
+            {% if prev_chapter %}
+                <a href="{% url 'reading_view_chapter' book.id prev_chapter.chapter_number %}"
+                   class="btn btn-secondary">
+                    ← Previous Chapter
+                </a>
+            {% else %}
+                <span></span>
+            {% endif %}
+
+            {% if next_chapter %}
+                <a href="{% url 'reading_view_chapter' book.id next_chapter.chapter_number %}"
+                   class="btn btn-primary">
+                    Next Chapter →
+                </a>
+            {% else %}
+                <span></span>
+            {% endif %}
+        </nav>
+    </main>
+
+    <!-- Resize handle between center and right -->
+    <div class="resize-handle" id="resize-right" aria-label="Resize right column"></div>
+
+    <!-- RIGHT COLUMN: Summary Panel -->
+    <aside class="summary-panel">
+        <div class="summary-panel-header">
+            <h3>AI Summary</h3>
+        </div>
+
+        <div class="summary-controls">
+            <!-- Prompt Selector -->
+            <div class="form-group">
+                <label for="prompt-selector">Prompt</label>
+                <select
+                    id="prompt-selector"
+                    class="form-select"
+                    aria-label="Select AI prompt"
+                >
+                    <option value="">Loading prompts...</option>
+                </select>
+            </div>
+
+            <!-- Model Selector -->
+            <div class="form-group">
+                <label for="model-selector">Model</label>
+                <select
+                    id="model-selector"
+                    class="form-select"
+                    aria-label="Select AI model"
+                >
+                    <option value="gpt-4o-mini" selected>gpt-4o-mini</option>
+                </select>
+            </div>
+
+            <!-- Generate Button -->
+            <button
+                id="generate-summary"
+                class="btn btn-primary btn-block"
+                type="button"
+                aria-label="Generate summary for current chapter"
+            >
+                Generate Summary
+            </button>
+
+            <!-- Version Selector (hidden by default) -->
+            <div class="form-group" id="version-selector-group" style="display: none;">
+                <label for="version-selector">Version</label>
+                <select
+                    id="version-selector"
+                    class="form-select"
+                    aria-label="Select summary version"
+                >
+                    <option value="">No versions available</option>
+                </select>
+            </div>
+
+            <!-- Compare Versions Button (hidden by default) -->
+            <button
+                id="compare-versions"
+                class="btn btn-secondary btn-block"
+                type="button"
+                style="display: none;"
+                aria-label="Compare summary versions"
+            >
+                Compare Versions
+            </button>
+        </div>
+
+        <!-- Summary Display Area -->
+        <div class="summary-display" id="summary-display">
+            {% if latest_summary %}
+                <div class="summary-content">
+                    <div class="summary-metadata">
+                        <div class="summary-metadata-item">
+                            <span class="summary-metadata-label">Prompt:</span>
+                            <span class="summary-metadata-value">{{ latest_summary.prompt.name|default:"N/A" }}</span>
+                        </div>
+                        <div class="summary-metadata-item">
+                            <span class="summary-metadata-label">Version:</span>
+                            <span class="summary-metadata-value">{{ latest_summary.version }}</span>
+                        </div>
+                        <div class="summary-metadata-item">
+                            <span class="summary-metadata-label">Cost:</span>
+                            <span class="summary-metadata-value">${{ latest_summary.estimated_cost_usd }}</span>
+                        </div>
+                        <div class="summary-metadata-item">
+                            <span class="summary-metadata-label">Tokens:</span>
+                            <span class="summary-metadata-value">{{ latest_summary.tokens_used|default:"0" }}</span>
+                        </div>
+                    </div>
+                    <div class="summary-text">
+                        {{ latest_summary.content_json.text }}
+                    </div>
+                </div>
+            {% else %}
+                <div class="summary-empty-state">
+                    <p>No summary generated yet.</p>
+                    <p class="help-text">Select a prompt and click "Generate Summary" to create an AI-powered summary of this chapter.</p>
+                </div>
+            {% endif %}
+        </div>
+    </aside>
+</div>
+
+<!-- Hidden data attributes for JavaScript -->
+<div id="reading-view-data"
+     data-book-id="{{ book.id }}"
+     data-chapter-id="{{ chapter.id }}"
+     data-chapter-number="{{ chapter.chapter_number }}"
+     style="display: none;">
+</div>
+
+<!-- MODALS -->
+
+<!-- Cost Preview Modal -->
+<div id="cost-preview-modal" class="modal-overlay" role="dialog" aria-labelledby="cost-preview-title" aria-modal="true">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2 id="cost-preview-title" class="modal-title">Cost Preview</h2>
+            <button class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Content loaded dynamically -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" data-modal-cancel>Cancel</button>
+            <button class="btn btn-primary" onclick="CostPreviewModal.confirm()">Confirm & Generate</button>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Preview Modal -->
+<div id="batch-preview-modal" class="modal-overlay" role="dialog" aria-labelledby="batch-preview-title" aria-modal="true">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2 id="batch-preview-title" class="modal-title">Batch Generation Preview</h2>
+            <button class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Content loaded dynamically -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" data-modal-cancel>Cancel</button>
+            <button class="btn btn-primary" onclick="BatchModal.confirmBatch()">Confirm & Start Batch</button>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Progress Modal -->
+<div id="batch-progress-modal" class="modal-overlay" role="dialog" aria-labelledby="batch-progress-title" aria-modal="true">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2 id="batch-progress-title" class="modal-title">Batch Generation Progress</h2>
+            <button class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Content loaded dynamically -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="ModalManager.close('batch-progress-modal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Version Comparison Modal -->
+<div id="version-comparison-modal" class="modal-overlay" role="dialog" aria-labelledby="version-comparison-title" aria-modal="true">
+    <div class="modal-container" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2 id="version-comparison-title" class="modal-title">Compare Versions</h2>
+            <button class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Content loaded dynamically -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="ModalManager.close('version-comparison-modal')">Close</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script src="{% static 'books_core/js/reading.js' %}"></script>
+<script src="{% static 'books_core/js/reading-ai.js' %}"></script>
+<script src="{% static 'books_core/js/modals.js' %}"></script>
+{% endblock %}

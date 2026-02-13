@@ -121,6 +121,32 @@
     margin-bottom: 0.25rem;
 }
 
+.card-readability {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.card-tier-badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 1rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.card-reading-time {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+}
+
+.tier-accessible { background-color: #d4edda; color: #155724; }
+.tier-moderate { background-color: #fff3cd; color: #856404; }
+.tier-technical { background-color: #ffe0cc; color: #a34200; }
+.tier-dense { background-color: #f8d7da; color: #721c24; }
+
 .empty-state {
     grid-column: 1 / -1;
     text-align: center;

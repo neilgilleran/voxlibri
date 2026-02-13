@@ -149,6 +149,14 @@
                         <span class="chapter-title">{{ chapter.title }}</span>
                     </div>
                     <div class="header-right">
+                        {% if chapter.readability.difficulty_tier and chapter.readability.difficulty_tier != 'unknown' %}
+                        <span class="tier-badge-sm tier-{{ chapter.readability.difficulty_tier }}">
+                            {{ chapter.readability.difficulty_tier|title }}
+                        </span>
+                        {% endif %}
+                        {% if chapter.readability.reading_time_minutes %}
+                        <span class="chapter-reading-time">{{ chapter.readability.reading_time_minutes }} min</span>
+                        {% endif %}
                         {% if chapter.rating %}
                         <span class="chapter-score">{{ chapter.rating.overall }}/10</span>
                         {% else %}
@@ -629,6 +637,26 @@
 .btn-export:hover {
     background-color: var(--gray-200);
     color: var(--gray-800);
+}
+
+/* Tier badges (used in chapter accordion) */
+.tier-badge-sm {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.tier-accessible { background-color: #d4edda; color: #155724; }
+.tier-moderate { background-color: #fff3cd; color: #856404; }
+.tier-technical { background-color: #ffe0cc; color: #a34200; }
+.tier-dense { background-color: #f8d7da; color: #721c24; }
+
+.chapter-reading-time {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
 }
 </style>
 

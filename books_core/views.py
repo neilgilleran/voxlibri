@@ -150,6 +150,14 @@ class UploadBookView(FormView):
             book.processed_at = timezone.now()
             book.save()
 
+            # Compute readability metrics (local, free, ~1-2 seconds)
+            try:
+                from .services.readability_service import ReadabilityService
+                ReadabilityService().compute_all_for_book(book)
+            except Exception as e:
+                logger.warning(f"Readability computation failed for book {book.id}: {e}")
+                # Non-fatal - book is still usable without readability
+
             # Store book ID and type for success URL
             self.book_id = book.id
             self.book_type = book.book_type
@@ -269,6 +277,28 @@ class BookDetailView(DetailView):
             service = ChapterAnalysisPipelineService()
             context['book_rating'] = service.get_book_rating(self.object)
 
+        # Get readability metrics (available for all completed books)
+        book_readability = self.object.readability_metrics
+        if book_readability and not book_readability.get('error'):
+            context['book_readability'] = book_readability
+            context['has_readability'] = True
+
+            from .services.readability_charts import ReadabilityChartService
+            chart_service = ReadabilityChartService()
+            readability_charts = {}
+            if book_readability.get('chapter_curve_data'):
+                readability_charts['difficulty_curve'] = chart_service.generate_difficulty_curve_svg(
+                    book_readability['chapter_curve_data']
+                )
+            if book_readability.get('difficulty_profile'):
+                readability_charts['distribution'] = chart_service.generate_distribution_bars_svg(
+                    book_readability['difficulty_profile']
+                )
+            context['readability_charts'] = readability_charts
+        else:
+            context['has_readability'] = False
+            context['readability_charts'] = {}
+
         return context
 
 
@@ -365,7 +395,12 @@ class DeleteBookView(DeleteView):
     Delete a book and all associated chapters.
     """
     model = Book
-    success_url = reverse_lazy('library')
+
+    def get_success_url(self):
+        namespace = self.request.resolver_match.namespace
+        if namespace:
+            return reverse_lazy(f'{namespace}:library')
+        return reverse_lazy('nonfiction:library')
 
     def post(self, request, *args, **kwargs):
         """Handle POST request to delete book and show success message."""

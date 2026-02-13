@@ -210,6 +210,11 @@ def run_book_aggregation(
     book = Book.objects.get(id=book_id)
     job = ProcessingJob.objects.get(id=job_id)
 
+    # Compute readability metrics if not already done (safety net)
+    if not book.readability_metrics:
+        from books_core.services.readability_service import ReadabilityService
+        ReadabilityService().compute_all_for_book(book)
+
     # Collect results from metadata
     chapter_results = job.metadata.get('chapter_results', [])
 

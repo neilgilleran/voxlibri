@@ -17,6 +17,21 @@
             <p class="book-meta">{{ book.word_count|intcomma }} words</p>
         {% endif %}
 
+        {% if book.readability_metrics.difficulty_tier and book.readability_metrics.difficulty_tier != 'unknown' %}
+        <div class="card-readability">
+            <span class="card-tier-badge tier-{{ book.readability_metrics.difficulty_tier }}">
+                {{ book.readability_metrics.difficulty_tier|title }}
+            </span>
+            <span class="card-reading-time">
+                {% if book.readability_metrics.reading_time_hours >= 1 %}
+                    {{ book.readability_metrics.reading_time_hours }}h read
+                {% else %}
+                    {{ book.readability_metrics.reading_time_minutes }}m read
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+
         {% if book.status != 'completed' %}
             <span class="status-badge status-{{ book.status }}">
                 {{ book.get_status_display }}

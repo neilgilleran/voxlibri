@@ -37,7 +37,9 @@ class ReportEpubService:
         self,
         book_rating: Optional[Dict],
         book_essence: Optional[Dict],
-        chapter_analyses: List[Dict]
+        chapter_analyses: List[Dict],
+        book_readability: Optional[Dict] = None,
+        readability_charts: Optional[Dict] = None
     ) -> bytes:
         """
         Generate EPUB file from report data.
@@ -68,6 +70,14 @@ class ReportEpubService:
                 highlights_chapter = self._add_highlights_chapter(book_rating)
                 self.chapters.append(highlights_chapter)
                 self.toc_items.append(epub.Link(highlights_chapter.file_name, 'Chapter Highlights', 'highlights'))
+
+        # Add readability profile
+        if book_readability:
+            readability_chapter = self._add_readability_chapter(
+                book_readability, readability_charts=readability_charts or {}
+            )
+            self.chapters.append(readability_chapter)
+            self.toc_items.append(epub.Link(readability_chapter.file_name, 'Readability Profile', 'readability'))
 
         # Add book essence sections
         if book_essence:
@@ -358,6 +368,191 @@ class ReportEpubService:
         chapter.set_content(self._wrap_html(html))
         return chapter
 
+    def _add_readability_chapter(
+        self, book_readability: Dict, readability_charts: Optional[Dict] = None
+    ) -> epub.EpubHtml:
+        """Create readability profile chapter with full enhanced data."""
+        readability_charts = readability_charts or {}
+        tier = book_readability.get('difficulty_tier', 'unknown').title()
+        fre = book_readability.get('flesch_reading_ease', 'N/A')
+        grade = book_readability.get('flesch_kincaid_grade', 'N/A')
+        fog = book_readability.get('gunning_fog', 'N/A')
+        hours = book_readability.get('reading_time_hours', 0)
+        minutes = book_readability.get('reading_time_minutes', 0)
+        total_words = book_readability.get('total_word_count', 0)
+        chapters_analyzed = book_readability.get('chapters_analyzed', 0)
+
+        time_display = f"{hours} hours" if hours >= 1 else f"{minutes} minutes"
+
+        # Benchmark
+        benchmark_html = ''
+        benchmark = book_readability.get('benchmark')
+        if benchmark:
+            benchmark_html = f'''
+            <p style="font-style: italic; color: #666;">
+                Comparable to: {self._escape_html(benchmark.get('comparable_to', ''))}
+            </p>
+            <p style="font-size: 0.9em; color: #888;">
+                {self._escape_html(benchmark.get('audience', ''))}
+            </p>
+            '''
+
+        # Reading time variants
+        skim_h = book_readability.get('reading_time_skim_hours', 0)
+        skim_m = book_readability.get('reading_time_skim_minutes', 0)
+        study_h = book_readability.get('reading_time_study_hours', 0)
+        study_m = book_readability.get('reading_time_study_minutes', 0)
+        skim_display = f"{skim_h}h" if skim_h >= 1 else f"{skim_m}m"
+        study_display = f"{study_h}h" if study_h >= 1 else f"{study_m}m"
+
+        time_variants_html = ''
+        if skim_m or study_m:
+            time_variants_html = f'''
+            <table class="criteria-table" style="margin: 1em 0;">
+                <tr>
+                    <td class="criterion-name">Skim (350 wpm)</td>
+                    <td class="criterion-score">{skim_display}</td>
+                </tr>
+                <tr>
+                    <td class="criterion-name">Read (adjusted)</td>
+                    <td class="criterion-score"><strong>{time_display}</strong></td>
+                </tr>
+                <tr>
+                    <td class="criterion-name">Study (100 wpm)</td>
+                    <td class="criterion-score">{study_display}</td>
+                </tr>
+            </table>
+            '''
+
+        # Score explanations
+        explanations = book_readability.get('score_explanations', {})
+        fre_exp = explanations.get('flesch_reading_ease', '')
+        grade_exp = explanations.get('flesch_kincaid_grade', '')
+        fog_exp = explanations.get('gunning_fog', '')
+
+        fre_exp_html = f'<br/><span style="font-size: 0.85em; color: #888; font-style: italic;">{self._escape_html(fre_exp)}</span>' if fre_exp else ''
+        grade_exp_html = f'<br/><span style="font-size: 0.85em; color: #888; font-style: italic;">{self._escape_html(grade_exp)}</span>' if grade_exp else ''
+        fog_exp_html = f'<br/><span style="font-size: 0.85em; color: #888; font-style: italic;">{self._escape_html(fog_exp)}</span>' if fog_exp else ''
+
+        # Difficulty curve SVG
+        curve_html = ''
+        if readability_charts.get('difficulty_curve'):
+            narrative = book_readability.get('difficulty_narrative', '')
+            narrative_p = f'<p style="font-style: italic; color: #666; margin-top: 0.5em;">{self._escape_html(narrative)}</p>' if narrative else ''
+            curve_html = f'''
+            <h2>Difficulty Curve</h2>
+            {readability_charts['difficulty_curve']}
+            {narrative_p}
+            '''
+
+        # Distribution SVG
+        dist_html = ''
+        if readability_charts.get('distribution'):
+            dist_html = f'''
+            <h2>Difficulty Distribution</h2>
+            {readability_charts['distribution']}
+            '''
+        else:
+            # Fallback to table-based distribution
+            profile = book_readability.get('difficulty_profile', {})
+            if profile:
+                dist_html = '<h2>Difficulty Distribution</h2><table class="criteria-table">'
+                for t, count in profile.items():
+                    dist_html += f'<tr><td class="criterion-name">{t.title()}</td><td class="criterion-score">{count} chapters</td></tr>'
+                dist_html += '</table>'
+
+        # Chapter breakdown table
+        breakdown_html = ''
+        curve_data = book_readability.get('chapter_curve_data', [])
+        if curve_data:
+            rows = ''
+            for ch in curve_data:
+                rows += f'''
+                <tr>
+                    <td style="text-align: center; width: 40px;">{ch.get('chapter_number', '')}</td>
+                    <td>{self._escape_html(ch.get('title', ''))}</td>
+                    <td style="text-align: center;">{ch.get('difficulty_tier', '').title()}</td>
+                    <td style="text-align: right;">{ch.get('flesch_kincaid_grade', '')}</td>
+                    <td style="text-align: right;">{ch.get('reading_time_minutes', '')}m</td>
+                </tr>
+                '''
+            breakdown_html = f'''
+            <h2>Chapter Breakdown</h2>
+            <table class="criteria-table">
+                <tr>
+                    <th style="text-align: center;">Ch.</th>
+                    <th>Title</th>
+                    <th style="text-align: center;">Tier</th>
+                    <th style="text-align: right;">Grade</th>
+                    <th style="text-align: right;">Time</th>
+                </tr>
+                {rows}
+            </table>
+            '''
+
+        # Build extremes section
+        extremes_html = ''
+        hardest = book_readability.get('hardest_chapter')
+        easiest = book_readability.get('easiest_chapter')
+        if hardest:
+            h_grade = hardest.get('flesch_kincaid_grade', '')
+            h_time = hardest.get('reading_time_minutes', '')
+            h_extra = f' | Grade {h_grade}' if h_grade else ''
+            h_extra += f' | {h_time}m' if h_time else ''
+            extremes_html += f'''
+            <div class="highlight-box weakest">
+                <h3>Hardest Chapter</h3>
+                <p class="chapter-ref">Chapter {hardest.get('number', '?')}: {self._escape_html(hardest.get('title', 'Untitled'))}</p>
+                <p>Difficulty: {hardest.get('difficulty_tier', '').title()} (FRE: {hardest.get('flesch_reading_ease', 'N/A')}){h_extra}</p>
+            </div>
+            '''
+        if easiest:
+            e_grade = easiest.get('flesch_kincaid_grade', '')
+            e_time = easiest.get('reading_time_minutes', '')
+            e_extra = f' | Grade {e_grade}' if e_grade else ''
+            e_extra += f' | {e_time}m' if e_time else ''
+            extremes_html += f'''
+            <div class="highlight-box best">
+                <h3>Easiest Chapter</h3>
+                <p class="chapter-ref">Chapter {easiest.get('number', '?')}: {self._escape_html(easiest.get('title', 'Untitled'))}</p>
+                <p>Difficulty: {easiest.get('difficulty_tier', '').title()} (FRE: {easiest.get('flesch_reading_ease', 'N/A')}){e_extra}</p>
+            </div>
+            '''
+
+        html = f'''
+        <h1>Readability Profile</h1>
+
+        <div class="overall-score-section">
+            <p style="font-size: 1.5em; font-weight: bold;">{tier}</p>
+            {benchmark_html}
+        </div>
+
+        <h2>Reading Time</h2>
+        {time_variants_html}
+
+        <h2>Scores</h2>
+        <table class="criteria-table">
+            <tr><td class="criterion-name">Flesch Reading Ease</td><td class="criterion-score">{fre}{fre_exp_html}</td></tr>
+            <tr><td class="criterion-name">Flesch-Kincaid Grade</td><td class="criterion-score">{grade}{grade_exp_html}</td></tr>
+            <tr><td class="criterion-name">Gunning Fog Index</td><td class="criterion-score">{fog}{fog_exp_html}</td></tr>
+        </table>
+
+        {curve_html}
+
+        {dist_html}
+
+        {breakdown_html}
+
+        {extremes_html}
+
+        <p class="meta-info">{chapters_analyzed} chapters analyzed | {total_words:,} words total</p>
+        '''
+
+        chapter = epub.EpubHtml(title='Readability Profile', file_name='readability.xhtml', lang='en')
+        chapter.id = 'readability'
+        chapter.set_content(self._wrap_html(html))
+        return chapter
+
     def _add_essence_chapters(self, book_essence: Dict) -> List[epub.EpubHtml]:
         """Create book essence chapters (overview, wisdom, references)."""
         chapters = []
@@ -417,6 +612,15 @@ class ReportEpubService:
             chapter_num = analysis.get('chapter_number', idx + 1)
             chapter_title = analysis.get('title', f'Chapter {chapter_num}')
             word_count = analysis.get('word_count', 0)
+            readability = analysis.get('readability', {})
+
+            # Build readability line
+            readability_html = ''
+            if readability and readability.get('difficulty_tier') and readability['difficulty_tier'] != 'unknown':
+                tier_label = readability['difficulty_tier'].title()
+                reading_min = readability.get('reading_time_minutes', '')
+                time_str = f' | ~{reading_min} min' if reading_min else ''
+                readability_html = f'<p class="word-count">{tier_label}{time_str}</p>'
 
             # Build summary section
             summary_html = ''
@@ -455,6 +659,7 @@ class ReportEpubService:
             <div class="chapter-header">
                 <h1>Chapter {chapter_num}: {self._escape_html(chapter_title)}</h1>
                 <p class="word-count">{word_count:,} words</p>
+                {readability_html}
             </div>
 
             {summary_html}

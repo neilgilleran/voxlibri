@@ -207,6 +207,10 @@ class ChapterAnalysisPipelineService:
             }
         )
 
+        # Compute readability metrics (local, free) before queuing AI tasks
+        from books_core.services.readability_service import ReadabilityService
+        ReadabilityService().compute_all_for_book(book)
+
         # Queue chapter tasks in parallel using Django-Q2
         task_ids = []
         for chapter in chapters:
@@ -266,6 +270,10 @@ class ChapterAnalysisPipelineService:
                 job.error_message = 'No content chapters found'
                 job.save()
                 return
+
+            # Compute readability metrics (local, free) before AI processing
+            from books_core.services.readability_service import ReadabilityService
+            ReadabilityService().compute_all_for_book(book)
 
             # Process each chapter
             chapter_ratings = []
@@ -846,6 +854,7 @@ Output ONLY the verdict text, no additional formatting."""
                 'word_count': chapter.word_count,
                 'summary': None,
                 'rating': None,
+                'readability': chapter.readability_metrics or {},
             }
 
             # Get latest wisdom extraction (or legacy summarize_chapter)
@@ -969,3 +978,15 @@ Output ONLY the verdict text, no additional formatting."""
                 }
 
         return essence if essence else None
+
+    def get_book_readability(self, book: Book) -> Optional[Dict[str, Any]]:
+        """
+        Get book-level readability metrics.
+
+        Returns:
+            Dict with readability metrics or None if not computed yet
+        """
+        metrics = book.readability_metrics
+        if metrics and not metrics.get('error'):
+            return metrics
+        return None

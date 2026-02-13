@@ -61,6 +61,9 @@ class Book(models.Model):
     )
     error_message = models.TextField(blank=True, null=True)
 
+    # Readability metrics (computed locally via textstat)
+    readability_metrics = models.JSONField(default=dict, blank=True)
+
     # Timestamps
     uploaded_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(blank=True, null=True)
@@ -102,6 +105,9 @@ class Chapter(models.Model):
 
     # AI summary tracking
     has_summary = models.BooleanField(default=False)
+
+    # Readability metrics (computed locally via textstat)
+    readability_metrics = models.JSONField(default=dict, blank=True)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

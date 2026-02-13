@@ -33,6 +33,175 @@
         </div>
     </div>
 
+    {% if has_readability %}
+    <div class="readability-section">
+        <div class="readability-card">
+            <h3>Readability Profile</h3>
+
+            <!-- 1. Header: Tier badge + benchmark + reading time variants -->
+            <div class="readability-overview">
+                <div>
+                    <div class="tier-badge tier-{{ book_readability.difficulty_tier }}">
+                        {{ book_readability.difficulty_tier|title }}
+                    </div>
+                    {% if book_readability.benchmark %}
+                    <div class="benchmark-info">
+                        <span class="benchmark-comparable">Comparable to {{ book_readability.benchmark.comparable_to }}</span>
+                        <span class="benchmark-audience">{{ book_readability.benchmark.audience }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="reading-times">
+                    <div class="reading-time-variant skim">
+                        <span class="variant-label">Skim</span>
+                        <span class="variant-value">
+                            {% if book_readability.reading_time_skim_hours >= 1 %}
+                            {{ book_readability.reading_time_skim_hours }}h
+                            {% else %}
+                            {{ book_readability.reading_time_skim_minutes }}m
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="reading-time-variant read active">
+                        <span class="variant-label">Read</span>
+                        <span class="variant-value">
+                            {% if book_readability.reading_time_hours >= 1 %}
+                            {{ book_readability.reading_time_hours }}h
+                            {% else %}
+                            {{ book_readability.reading_time_minutes }}m
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="reading-time-variant study">
+                        <span class="variant-label">Study</span>
+                        <span class="variant-value">
+                            {% if book_readability.reading_time_study_hours >= 1 %}
+                            {{ book_readability.reading_time_study_hours }}h
+                            {% else %}
+                            {{ book_readability.reading_time_study_minutes }}m
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Scores with explanations -->
+            <div class="readability-scores">
+                <div class="readability-score">
+                    <span class="score-label">Flesch Reading Ease</span>
+                    <span class="score-number">{{ book_readability.flesch_reading_ease }}</span>
+                    {% if book_readability.score_explanations.flesch_reading_ease %}
+                    <span class="score-explanation">{{ book_readability.score_explanations.flesch_reading_ease }}</span>
+                    {% endif %}
+                </div>
+                <div class="readability-score">
+                    <span class="score-label">Grade Level</span>
+                    <span class="score-number">{{ book_readability.flesch_kincaid_grade }}</span>
+                    {% if book_readability.score_explanations.flesch_kincaid_grade %}
+                    <span class="score-explanation">{{ book_readability.score_explanations.flesch_kincaid_grade }}</span>
+                    {% endif %}
+                </div>
+                <div class="readability-score">
+                    <span class="score-label">Gunning Fog</span>
+                    <span class="score-number">{{ book_readability.gunning_fog }}</span>
+                    {% if book_readability.score_explanations.gunning_fog %}
+                    <span class="score-explanation">{{ book_readability.score_explanations.gunning_fog }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 3. Difficulty Curve Chart -->
+            {% if readability_charts.difficulty_curve %}
+            <div class="chart-section">
+                <h4>Difficulty Curve</h4>
+                <div class="chart-container">
+                    {{ readability_charts.difficulty_curve|safe }}
+                </div>
+                {% if book_readability.difficulty_narrative %}
+                <p class="difficulty-narrative">{{ book_readability.difficulty_narrative }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- 4. Distribution Chart -->
+            {% if readability_charts.distribution %}
+            <div class="chart-section">
+                <h4>Difficulty Distribution</h4>
+                <div class="chart-container distribution">
+                    {{ readability_charts.distribution|safe }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 5. Chapter Breakdown Table -->
+            {% if book_readability.chapter_curve_data %}
+            <div class="chapter-breakdown-section">
+                <h4>Chapter Breakdown</h4>
+                <div class="chapter-breakdown">
+                    {% for ch in book_readability.chapter_curve_data %}
+                    <div class="breakdown-row">
+                        <span class="breakdown-number">{{ ch.chapter_number }}</span>
+                        <span class="breakdown-title">{{ ch.title|truncatechars:30 }}</span>
+                        <span class="tier-badge-sm tier-{{ ch.difficulty_tier }}">{{ ch.difficulty_tier|title }}</span>
+                        <div class="breakdown-bar-container">
+                            <div class="breakdown-bar tier-bg-{{ ch.difficulty_tier }}" style="width: {{ ch.reading_time_pct }}%"></div>
+                        </div>
+                        <span class="breakdown-time">{{ ch.reading_time_minutes }}m</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 6. Extremes -->
+            {% if book_readability.hardest_chapter or book_readability.easiest_chapter %}
+            <div class="readability-extremes">
+                {% if book_readability.hardest_chapter %}
+                <div class="extreme-item hardest">
+                    <span class="extreme-label">Hardest</span>
+                    <span class="extreme-chapter">
+                        Ch. {{ book_readability.hardest_chapter.number }}: {{ book_readability.hardest_chapter.title|truncatechars:40 }}
+                    </span>
+                    <span class="tier-badge-sm tier-{{ book_readability.hardest_chapter.difficulty_tier }}">
+                        {{ book_readability.hardest_chapter.difficulty_tier|title }}
+                    </span>
+                    {% if book_readability.hardest_chapter.flesch_kincaid_grade %}
+                    <span class="extreme-detail">Grade {{ book_readability.hardest_chapter.flesch_kincaid_grade }}</span>
+                    {% endif %}
+                    {% if book_readability.hardest_chapter.reading_time_minutes %}
+                    <span class="extreme-detail">{{ book_readability.hardest_chapter.reading_time_minutes }}m</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if book_readability.easiest_chapter %}
+                <div class="extreme-item easiest">
+                    <span class="extreme-label">Easiest</span>
+                    <span class="extreme-chapter">
+                        Ch. {{ book_readability.easiest_chapter.number }}: {{ book_readability.easiest_chapter.title|truncatechars:40 }}
+                    </span>
+                    <span class="tier-badge-sm tier-{{ book_readability.easiest_chapter.difficulty_tier }}">
+                        {{ book_readability.easiest_chapter.difficulty_tier|title }}
+                    </span>
+                    {% if book_readability.easiest_chapter.flesch_kincaid_grade %}
+                    <span class="extreme-detail">Grade {{ book_readability.easiest_chapter.flesch_kincaid_grade }}</span>
+                    {% endif %}
+                    {% if book_readability.easiest_chapter.reading_time_minutes %}
+                    <span class="extreme-detail">{{ book_readability.easiest_chapter.reading_time_minutes }}m</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- 7. Meta -->
+            <div class="analysis-meta">
+                {{ book_readability.chapters_analyzed }} chapters analyzed |
+                {{ book_readability.total_word_count|intcomma }} words total
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if book.status == 'failed' %}
         <div class="error-message">
             <strong>Processing Error:</strong>
@@ -150,6 +319,296 @@
     font-size: var(--text-2xl);
     font-weight: 600;
     color: var(--gray-900);
+}
+
+/* Readability Section */
+.readability-section {
+    margin-bottom: 2rem;
+}
+
+.readability-card {
+    background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+    border: 2px solid var(--gray-200);
+    border-radius: 1rem;
+    padding: 2rem;
+}
+
+.readability-card h3 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.readability-overview {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.tier-badge {
+    display: inline-block;
+    padding: 0.5rem 1.25rem;
+    border-radius: 2rem;
+    font-size: var(--text-lg);
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.tier-accessible { background-color: #d4edda; color: #155724; }
+.tier-moderate { background-color: #fff3cd; color: #856404; }
+.tier-technical { background-color: #ffe0cc; color: #a34200; }
+.tier-dense { background-color: #f8d7da; color: #721c24; }
+
+.benchmark-info {
+    margin-top: 0.5rem;
+}
+
+.benchmark-comparable {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+    font-style: italic;
+}
+
+.benchmark-audience {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    margin-top: 0.15rem;
+}
+
+.reading-times {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.reading-time-variant {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background: white;
+    min-width: 60px;
+    border: 1px solid var(--gray-200);
+}
+
+.reading-time-variant.active {
+    background: var(--gray-800);
+    border-color: var(--gray-800);
+}
+
+.reading-time-variant.active .variant-label,
+.reading-time-variant.active .variant-value {
+    color: white;
+}
+
+.variant-label {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.variant-value {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.readability-scores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.readability-score {
+    background: white;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    min-width: 140px;
+    text-align: center;
+}
+
+.readability-score .score-label {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+
+.readability-score .score-number {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.score-explanation {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+.chart-section {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.chart-section h4 {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--gray-700);
+}
+
+.chart-container {
+    width: 100%;
+    background: white;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+}
+
+.chart-container svg {
+    width: 100%;
+    height: auto;
+}
+
+.difficulty-narrative {
+    font-style: italic;
+    color: var(--gray-600);
+    font-size: var(--text-sm);
+    margin-top: 0.5rem;
+}
+
+.chart-container.distribution {
+    max-width: 450px;
+}
+
+.tier-badge-sm {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.chapter-breakdown-section {
+    margin-top: 1.5rem;
+}
+
+.chapter-breakdown-section h4 {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--gray-700);
+}
+
+.chapter-breakdown {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.breakdown-row {
+    display: grid;
+    grid-template-columns: 32px 1fr auto 120px 45px;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: var(--text-sm);
+}
+
+.breakdown-row:last-child {
+    border-bottom: none;
+}
+
+.breakdown-number {
+    font-weight: 600;
+    color: var(--gray-500);
+    text-align: center;
+    font-size: var(--text-xs);
+}
+
+.breakdown-title {
+    color: var(--gray-700);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.breakdown-bar-container {
+    background: var(--gray-100);
+    border-radius: 3px;
+    height: 8px;
+    overflow: hidden;
+}
+
+.breakdown-bar {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+}
+
+.tier-bg-accessible { background-color: #28a745; }
+.tier-bg-moderate { background-color: #ffc107; }
+.tier-bg-technical { background-color: #e67e22; }
+.tier-bg-dense { background-color: #dc3545; }
+
+.breakdown-time {
+    text-align: right;
+    color: var(--gray-500);
+    font-size: var(--text-xs);
+}
+
+.readability-extremes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.extreme-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 0.5rem;
+}
+
+.extreme-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    width: 100%;
+}
+
+.extreme-chapter {
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+}
+
+.extreme-detail {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+}
+
+.readability-section .analysis-meta {
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+    margin-top: 1rem;
 }
 
 .chapters-section {

@@ -46,8 +46,8 @@ python manage.py sync_prompts --force # Force resync
 
 ### Data Model: Book → Chapter → Summary
 
-- **Book**: Metadata, file paths, processing status. Supports EPUB & PDF.
-- **Chapter**: FK to Book, stores markdown content. Unique: (book, chapter_number)
+- **Book**: Metadata, file paths, processing status, `readability_metrics` (JSONField). Supports EPUB & PDF.
+- **Chapter**: FK to Book, stores markdown content, `readability_metrics` (JSONField). Unique: (book, chapter_number)
 - **Summary**: FK to chapter OR book (mutually exclusive). Versioned with cost tracking.
 - **Prompt**: AI templates synced from `prompts/` directory. Auto-syncs on startup.
 - **UsageTracking**: Daily/monthly API cost aggregation.
@@ -61,6 +61,7 @@ Business logic lives here, not in views:
 - `openai_service.py` - AI API integration
 - `cost_control_service.py` - Token counting & limits
 - `chapter_analysis_pipeline_service.py` - Full analysis orchestration
+- `readability_service.py` - Local textstat readability metrics (zero API cost)
 - `report_epub_service.py` - EPUB export generation
 
 ### View Organization
@@ -74,6 +75,7 @@ Business logic lives here, not in views:
 
 Orchestrated by `ChapterAnalysisPipelineService`:
 
+0. **Readability** (local, free): `ReadabilityService.compute_all_for_book()` runs textstat metrics on all chapters before AI processing. Computes Flesch Reading Ease, grade level, Gunning Fog, SMOG, Coleman-Liau, difficulty tier (accessible/moderate/technical/dense), and estimated reading time per chapter and book.
 1. **Per-Chapter** (4 prompts each): `summarize_chapter`, `rate_chapter`, `extract_chapter_wisdom`, `extract_references`
 2. **Book-Level Aggregation** (4 prompts): `aggregate_summaries`, `aggregate_book_rating`, `aggregate_wisdom`, `aggregate_references`
 

@@ -22,6 +22,7 @@ from django.utils.decorators import method_decorator
 
 from .models import Book, ProcessingJob
 from .services.chapter_analysis_pipeline_service import ChapterAnalysisPipelineService
+from .services.readability_charts import ReadabilityChartService
 from .services.report_epub_service import ReportEpubService
 from .exceptions import LimitExceededException, EmergencyStopException
 
@@ -178,6 +179,22 @@ class ExportReportEpubView(View):
         book_essence = service.get_book_essence(book)
         chapter_analyses = service.get_chapter_analyses(book)
 
+        # Get readability metrics
+        book_readability = service.get_book_readability(book)
+
+        # Generate readability charts for EPUB
+        readability_charts = {}
+        if book_readability:
+            chart_service = ReadabilityChartService()
+            if book_readability.get('chapter_curve_data'):
+                readability_charts['difficulty_curve'] = chart_service.generate_difficulty_curve_svg(
+                    book_readability['chapter_curve_data']
+                )
+            if book_readability.get('difficulty_profile'):
+                readability_charts['distribution'] = chart_service.generate_distribution_bars_svg(
+                    book_readability['difficulty_profile']
+                )
+
         # Check if analysis exists
         if not book_rating:
             return HttpResponse(
@@ -192,7 +209,9 @@ class ExportReportEpubView(View):
             epub_bytes = epub_service.generate_report_epub(
                 book_rating=book_rating,
                 book_essence=book_essence,
-                chapter_analyses=chapter_analyses
+                chapter_analyses=chapter_analyses,
+                book_readability=book_readability,
+                readability_charts=readability_charts
             )
         except Exception as e:
             logger.error(f"Failed to generate EPUB for book {book_id}: {e}", exc_info=True)

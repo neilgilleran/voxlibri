@@ -2,168 +2,260 @@
   <img src="docs/voxlibri.png" alt="VoxLibri" width="400">
 </p>
 
-# VoxLibri
+<h1 align="center">VoxLibri</h1>
 
-AI-enhanced book comprehension platform. Upload EPUB/PDF files, read with a 3-column interface, and generate AI-powered chapter summaries with cost controls.
+<p align="center">
+  <em>AI-powered book comprehension platform. Upload EPUBs, read in a 3-column interface, generate chapter summaries with cost controls, and export full analysis reports.</em>
+</p>
 
-## Features
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.12+-blue" alt="Python">
+  <img src="https://img.shields.io/badge/django-5.2-green" alt="Django">
+  <img src="https://img.shields.io/badge/AI-GPT--4o--mini-orange" alt="AI">
+  <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License">
+</p>
 
-- **EPUB & PDF parsing** with smart chapter extraction and cover images
-- **3-column reading interface** with resizable panels
-- **AI chapter summaries** using OpenAI GPT-4o-mini
-- **Book-level analysis** aggregating insights across all chapters
-- **Cost controls** with daily/monthly limits and preview before every AI call
-- **Fabric prompt integration** for customizable summarization styles
+---
+
+## What It Does
+
+VoxLibri turns books into structured knowledge. Upload an EPUB, and the platform:
+
+1. **Parses** the book into chapters with smart TOC detection
+2. **Analyzes readability** locally (zero API cost) -- Flesch score, grade level, difficulty curve
+3. **Generates AI summaries** per chapter using customizable prompts
+4. **Aggregates book-level analysis** -- thesis, key arguments, ratings, wisdom extraction
+5. **Exports** the full analysis as a downloadable EPUB report
+
+Every AI call shows a cost preview before execution. Daily and monthly spending limits prevent surprises.
+
+---
 
 ## Screenshots
 
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Library View" width="800">
-  <br><em>Library view with uploaded books</em>
+  <br><em>Library view -- 45+ books with cover art, readability badges, and quick access</em>
 </p>
 
 <p align="center">
   <img src="docs/screenshots/reading.png" alt="Reading View" width="800">
-  <br><em>3-column reading interface with AI summaries</em>
+  <br><em>3-column reading interface: chapter navigation, text content, AI summary panel with cost tracking</em>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/analysis.png" alt="Book Analysis" width="800">
-  <br><em>AI-generated book analysis report</em>
+  <img src="docs/screenshots/book-detail.png" alt="Book Detail" width="800">
+  <br><em>Book detail with readability profile -- difficulty tier, reading time estimates, Flesch/Gunning Fog scores, difficulty curve</em>
 </p>
 
-## Sample Output
+<p align="center">
+  <img src="docs/screenshots/report.png" alt="Analysis Report" width="800">
+  <br><em>Full analysis report for The Art of War -- rating, thesis, key arguments, chapter-by-chapter breakdown with difficulty badges</em>
+</p>
 
-VoxLibri includes two sample books for testing. Here's what the AI analysis produces:
+---
 
-### The Art of War by Sun Tzu
+## Architecture
 
-> **Book Thesis**: A treatise on military strategy that transcends warfare to offer timeless principles of competition, leadership, and strategic thinking applicable to business, politics, and life.
->
-> **Key Arguments**:
-> - Victory comes from strategic positioning, not brute force
-> - Know yourself and your enemy to ensure success
-> - Adaptability and deception are essential tools
-> - The supreme art is subduing the enemy without fighting
+```
+┌──────────────┐     ┌──────────────────────────────────────┐
+│  EPUB/PDF    │     │  Django + Django-Q2                   │
+│  Upload      │────>│                                      │
+└──────────────┘     │  ┌─────────────┐  ┌──────────────┐  │
+                     │  │ Parser      │  │ Readability   │  │
+                     │  │ (ebooklib,  │  │ (textstat,    │  │
+                     │  │  PyMuPDF)   │  │  zero cost)   │  │
+                     │  └──────┬──────┘  └──────┬───────┘  │
+                     │         │                │          │
+                     │  ┌──────▼────────────────▼───────┐  │
+                     │  │  Chapter Analysis Pipeline     │  │
+                     │  │  4 prompts/chapter + 4 book    │  │
+                     │  │  (parallel via Django-Q2)      │  │
+                     │  └──────┬────────────────────────┘  │
+                     │         │                           │
+                     │  ┌──────▼──────┐  ┌──────────────┐  │
+                     │  │ Cost Control│  │ OpenAI API   │  │
+                     │  │ (preview,   │  │ (GPT-4o-mini)│  │
+                     │  │  limits)    │  │              │  │
+                     │  └─────────────┘  └──────────────┘  │
+                     │                                      │
+                     │  ┌──────────────────────────────┐   │
+                     │  │  Report Export (EPUB)         │   │
+                     │  └──────────────────────────────┘   │
+                     └──────────────────────────────────────┘
+```
 
-### Pride and Prejudice by Jane Austen
+### Key Design Decisions
 
-> **Book Thesis**: A witty examination of how pride and prejudice obstruct love, set against the marriage market of Regency England.
->
-> **Key Arguments**:
-> - First impressions are often wrong and must be revised
-> - Social class and wealth complicate romantic relationships
-> - Self-knowledge requires painful honesty
-> - True love emerges when both parties grow and change
+- **Services layer** -- business logic lives in `books_core/services/`, not views
+- **Cost-first** -- every AI call requires a preview showing token count and cost before execution
+- **Local-first readability** -- Flesch, Gunning Fog, SMOG, Coleman-Liau computed via textstat with zero API calls
+- **Parallel processing** -- Django-Q2 runs 4 workers for concurrent chapter analysis
+- **Prompt templates** -- stored as markdown with YAML frontmatter in `prompts/`, synced on startup
+
+---
+
+## AI Analysis Pipeline
+
+The analysis pipeline processes a book in two phases:
+
+**Phase 1: Per-Chapter** (4 prompts each, parallel across chapters)
+- `summarize_chapter` -- structured summary with key points
+- `rate_chapter` -- quality rating with criteria breakdown
+- `extract_chapter_wisdom` -- actionable insights and quotes
+- `extract_references` -- books, articles, and people mentioned
+
+**Phase 2: Book-Level Aggregation** (4 prompts, sequential)
+- `aggregate_summaries` -- thesis, key arguments, journey, takeaways
+- `aggregate_book_rating` -- overall rating with sub-scores
+- `aggregate_wisdom` -- consolidated wisdom across all chapters
+- `aggregate_references` -- deduplicated bibliography
+
+**Readability** (runs before AI, zero cost):
+- Flesch Reading Ease, grade level, Gunning Fog, SMOG, Coleman-Liau
+- Difficulty tier classification (accessible / moderate / technical / dense)
+- Per-chapter difficulty curve visualization
+- Estimated reading times (skim / read / study)
+
+---
 
 ## Quick Start
 
 ```bash
-# Clone and setup
 git clone https://github.com/neilgilleran/voxlibri.git
 cd voxlibri
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Configure
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Edit .env: add your OPENAI_API_KEY
 
-# Initialize database
 python manage.py migrate
 python manage.py createsuperuser
 
-# Run (two terminals)
-python manage.py runserver      # Terminal 1: Web server
-python manage.py qcluster       # Terminal 2: Task worker (required for AI)
+# Two terminals required:
+python manage.py runserver      # Terminal 1: web server
+python manage.py qcluster       # Terminal 2: task worker (required for AI)
 ```
 
-Access at http://localhost:8000
-
-## Configuration
-
-Create `.env` in project root:
-
-```bash
-DJANGO_SECRET_KEY=your-secret-key-here
-OPENAI_API_KEY=your-openai-api-key-here
-```
+Open http://localhost:8000
 
 Get an OpenAI API key at https://platform.openai.com/api-keys
 
+---
+
 ## Usage
 
-1. **Upload** - Click "Upload Book" and select an EPUB or PDF
-2. **Read** - Open book, navigate chapters in the left panel
-3. **Summarize** - Select a prompt in the right panel, click "Generate Summary"
-4. **Analyze** - Use "Analyze Book" for full book-level insights
+1. **Upload** -- click "Upload Book", select EPUB or PDF (max 50MB)
+2. **Browse** -- library shows covers, readability badges, word counts
+3. **Read** -- 3-column interface: chapters left, text center, AI panel right
+4. **Summarize** -- select a prompt, click "Generate Summary" (cost preview shown first)
+5. **Analyze** -- "Analyze Book" runs the full pipeline across all chapters
+6. **Report** -- view the aggregated analysis with ratings, thesis, wisdom
+7. **Export** -- download the complete analysis as an EPUB report
 
 ### Cost Controls
 
-- **Monthly limit**: $5/month default (configurable in Settings)
-- **Daily limit**: 100 summaries/day default
-- **Preview required**: Every AI call shows cost before confirmation
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Monthly limit | $5.00 | Resets on the 1st of each month |
+| Daily limit | 100 summaries | Resets at midnight UTC |
+| Preview | Always on | Every AI call shows cost before confirmation |
+
+---
+
+## Prompt System
+
+AI prompts are stored as markdown files with YAML frontmatter:
+
+```markdown
+---
+name: summarize_chapter
+category: summarization
+default_model: gpt-4o-mini
+variables: [content]
+---
+# IDENTITY
+You are an expert book analyst...
+```
+
+Prompts live in `prompts/` and auto-sync on server startup. Supports [Fabric](https://github.com/danielmiessler/fabric) prompt patterns -- run `python manage.py sync_prompts` to pull from the Fabric library.
+
+---
 
 ## Project Structure
 
 ```
 voxlibri/
-├── books_core/           # Main Django app
-│   ├── models.py         # Book, Chapter, Summary, Prompt
-│   ├── views.py          # Web views
-│   ├── services/         # Business logic (parsing, AI, cost control)
-│   └── templates/        # HTML templates
-├── prompts/              # AI prompt templates (YAML frontmatter + markdown)
-├── media/books/          # Uploaded files and covers
-├── docs/                 # Documentation and images
-│   ├── voxlibri.png      # Logo
-│   └── screenshots/      # App screenshots
-└── voxlibri/             # Django project settings
+├── books_core/              # Main Django app
+│   ├── models.py            # Book, Chapter, Summary, Prompt, UsageTracking
+│   ├── views.py             # Library, Detail, Upload, Settings views
+│   ├── summary_api_views.py # Summary generation API
+│   ├── book_analysis_views.py
+│   ├── chapter_pipeline_views.py
+│   ├── services/            # Business logic
+│   │   ├── epub_parser.py       # EPUB parsing with TOC detection
+│   │   ├── pdf_parser.py        # PDF parsing with bookmark splitting
+│   │   ├── openai_service.py    # OpenAI API integration
+│   │   ├── cost_control_service.py  # Token counting, limits, previews
+│   │   ├── readability_service.py   # Local readability metrics
+│   │   ├── chapter_analysis_pipeline_service.py  # Full pipeline orchestration
+│   │   └── report_epub_service.py   # EPUB report export
+│   └── templates/           # Django templates + vanilla JS
+├── prompts/                 # AI prompt templates (YAML + markdown)
+├── media/books/             # Uploaded files and covers
+├── docs/                    # Logo and screenshots
+└── voxlibri/                # Django project settings
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Django 5.2, Django-Q2 (parallel task processing) |
+| AI | OpenAI API (GPT-4o-mini), tiktoken (token counting) |
+| Readability | textstat (Flesch, Gunning Fog, SMOG, Coleman-Liau) |
+| Parsing | ebooklib + BeautifulSoup4 (EPUB), PyMuPDF (PDF) |
+| Frontend | Django Templates, vanilla JavaScript, CSS Grid |
+| Database | SQLite |
+| Export | EPUB generation via ebooklib |
+
+---
 
 ## Commands
 
 ```bash
 python manage.py runserver              # Start web server
-python manage.py qcluster               # Start task worker
-python manage.py test books_core        # Run tests (179+ passing)
+python manage.py qcluster               # Start task worker (required for AI)
+python manage.py test books_core        # Run tests
 python manage.py sync_prompts           # Sync Fabric prompts from GitHub
 python manage.py sync_prompts --list    # List prompt sync status
+python manage.py sync_prompts --force   # Force re-sync all prompts
 ```
 
-## Tech Stack
-
-- **Backend**: Django 5.2+, Django-Q2, Django Channels
-- **AI**: OpenAI API (GPT-4o-mini), tiktoken
-- **Parsing**: ebooklib, BeautifulSoup4, PyMuPDF
-- **Frontend**: Django Templates, vanilla JS, CSS Grid
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/chapters/<id>/summary-preview/` | POST | Preview cost before generating |
-| `/api/chapters/<id>/summary-generate/` | POST | Generate chapter summary |
-| `/api/summaries/batch-preview/` | POST | Preview batch cost |
-| `/api/summaries/batch-generate/` | POST | Generate multiple summaries |
-| `/books/<id>/analyze/` | POST | Start book analysis pipeline |
-| `/books/<id>/report/` | GET | View analysis report |
+---
 
 ## Troubleshooting
 
-**"Waiting for worker..."** - Start qcluster in a separate terminal
+| Problem | Fix |
+|---------|-----|
+| "Waiting for worker..." | Start `python manage.py qcluster` in a separate terminal |
+| AI features disabled | Check `OPENAI_API_KEY` in `.env`, verify Settings > AI Features Enabled |
+| Limit exceeded | Increase limits in Settings, or wait for reset |
+| EPUB chapters not detected | Try re-uploading; parser falls back to heading-based splitting |
 
-**AI features disabled** - Check OPENAI_API_KEY in .env, verify Settings > AI Features Enabled
-
-**Limit exceeded** - Increase limits in Settings or wait for reset (daily at midnight UTC, monthly at month start)
+---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+MIT -- see [LICENSE](LICENSE)
 
 ## Acknowledgments
 
-- [Fabric](https://github.com/danielmiessler/fabric) - Prompt library
-- [OpenAI](https://openai.com) - GPT-4o-mini
-- [Django](https://djangoproject.com) - Web framework
+- [Fabric](https://github.com/danielmiessler/fabric) -- prompt pattern library
+- [OpenAI](https://openai.com) -- GPT-4o-mini API
+- [Django](https://djangoproject.com) -- web framework
+- [textstat](https://github.com/textstat/textstat) -- readability metrics

@@ -104,6 +104,24 @@ The analysis pipeline processes a book in two phases:
 
 ## Quick Start
 
+### Option A: AI-assisted setup (Claude Code)
+
+If you have [Claude Code](https://claude.ai/code) installed, just point it at the repo:
+
+```bash
+git clone https://github.com/neilgilleran/voxlibri.git
+cd voxlibri
+claude
+```
+
+Then tell it:
+
+> Set up VoxLibri for local development. Create a .venv, install dependencies, run migrations, and start the server. I'll provide my OpenAI API key.
+
+Claude Code will read the `CLAUDE.md` file in the repo root, which has the full development setup, architecture, and command reference. It handles the rest.
+
+### Option B: Manual setup
+
 ```bash
 git clone https://github.com/neilgilleran/voxlibri.git
 cd voxlibri

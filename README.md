@@ -34,11 +34,6 @@ Every AI call shows a cost preview before execution. Daily and monthly spending 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/library.png" alt="Library View" width="800">
-  <br><em>Library view -- 45+ books with cover art, readability badges, and quick access</em>
-</p>
-
-<p align="center">
   <img src="docs/screenshots/reading.png" alt="Reading View" width="800">
   <br><em>3-column reading interface: chapter navigation, text content, AI summary panel with cost tracking</em>
 </p>

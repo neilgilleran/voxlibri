@@ -169,7 +169,10 @@ class ChapterAnalysisPipelineService:
         usage, _ = UsageTracking.objects.get_or_create(date=date.today())
 
         remaining = settings.daily_summary_limit - usage.daily_summaries_count
-        if total_prompts > remaining:
+        # The daily budget caps metered API spend; a subscription CLI has none.
+        from books_core.services import subscription_llm
+        on_plan = subscription_llm.provider() in subscription_llm.PROVIDERS
+        if total_prompts > remaining and not on_plan:
             raise ValueError(
                 f"Not enough daily budget. Need {total_prompts} API calls, "
                 f"but only {remaining} remaining (limit: {settings.daily_summary_limit}). "

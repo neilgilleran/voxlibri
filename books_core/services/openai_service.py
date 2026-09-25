@@ -2,8 +2,8 @@
 OpenAIService - OpenAI API integration with cost control.
 
 Handles communication with OpenAI API with:
-- 30-second timeout enforcement
-- No automatic retry (manual only per requirements)
+- 120-second timeout enforcement (large summaries routinely exceed 30s)
+- No automatic retry at this layer (callers add retry where resilience is needed)
 - Cost control integration
 - Clear error handling
 """
@@ -16,6 +16,7 @@ from decimal import Decimal
 from openai import OpenAI, APIError, APIConnectionError, APITimeoutError, RateLimitError
 
 from books_core.services.cost_control_service import CostControlService
+from books_core.services import subscription_llm
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class OpenAIService:
         self,
         api_key: Optional[str] = None,
         model: str = 'gpt-4o-mini',
-        timeout: int = 30,
+        timeout: int = 120,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ):
@@ -49,23 +50,31 @@ class OpenAIService:
         Args:
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
             model: Model to use for completions
-            timeout: Request timeout in seconds (default: 30)
+            timeout: Request timeout in seconds (default: 120)
             temperature: Sampling temperature (0-1)
             max_tokens: Maximum tokens in response
 
         Raises:
             ValueError: If API key is not provided
         """
+        # VOXLIBRI_LLM_PROVIDER=codex|claude routes every completion through a
+        # subscription CLI instead of the paid API (see subscription_llm.py).
+        self.provider = subscription_llm.provider()
+        self.model = model
+        self.timeout = timeout
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        if self.provider in subscription_llm.PROVIDERS:
+            self.api_key = None
+            self.client = None
+            return
+
         self.api_key = api_key or os.getenv('OPENAI_API_KEY')
         if not self.api_key:
             raise ValueError(
                 "OpenAI API key must be provided or set in OPENAI_API_KEY environment variable"
             )
 
-        self.model = model
-        self.timeout = timeout
-        self.temperature = temperature
-        self.max_tokens = max_tokens
 
         # Initialize OpenAI client with timeout
         self.client = OpenAI(api_key=self.api_key, timeout=self.timeout)
@@ -100,10 +109,13 @@ class OpenAIService:
 
         Raises:
             APIError: If API call fails (no automatic retry)
-            APITimeoutError: If request times out after 30 seconds
+            APITimeoutError: If request times out after the configured timeout
             APIConnectionError: If connection fails
             RateLimitError: If rate limit is hit
         """
+        if self.provider in subscription_llm.PROVIDERS:
+            return subscription_llm.complete(prompt, system_message)
+
         # Build messages
         messages = []
         if system_message:
@@ -121,7 +133,7 @@ class OpenAIService:
         logger.info(f"Making OpenAI API call with model {params['model']}")
 
         try:
-            # Make API call with 30-second timeout
+            # Make API call with the configured timeout
             response = self.client.chat.completions.create(
                 messages=messages,
                 **params
@@ -203,6 +215,25 @@ class OpenAIService:
             APIError: If API call fails (usage not tracked on failure)
         """
         model_name = model or self.model
+
+        if self.provider in subscription_llm.PROVIDERS:
+            # A plan, not metered spend: no pre-call cost gate or TPM gate, and
+            # usage is recorded at $0 so the dashboards keep counting calls.
+            result = self.complete(prompt, model_name, system_message, **kwargs)
+            if cost_service is None:
+                cost_service = CostControlService(model=model_name)
+            cost_service.update_usage(tokens=result['tokens_used'], cost=Decimal('0'), model=model_name)
+            result['actual_cost_usd'] = '0'
+            result['cost_breakdown'] = {
+                'input_tokens': result['prompt_tokens'],
+                'output_tokens': result['completion_tokens'],
+                'total_tokens': result['tokens_used'],
+                'input_cost_usd': '0',
+                'output_cost_usd': '0',
+                'total_cost_usd': '0',
+                'model': result['model'],
+            }
+            return result
 
         # Initialize cost service if not provided
         if cost_service is None:

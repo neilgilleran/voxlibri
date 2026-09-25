@@ -333,12 +333,36 @@ class ResumeReadingService:
         # Call OpenAI
         start_time = time.time()
 
+        from openai import APITimeoutError, APIConnectionError
+
         openai_service = OpenAIService(model=model)
-        result = openai_service.complete(
-            prompt=rendered_prompt,
-            model=model,
-            max_tokens=2000,
-        )
+
+        # Resume summaries are large (max_tokens=2000) and can be slow. A single
+        # transient timeout/connection blip should not lose the whole report, so
+        # retry a couple of times with backoff before giving up.
+        max_attempts = 3
+        result = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = openai_service.complete(
+                    prompt=rendered_prompt,
+                    model=model,
+                    max_tokens=2000,
+                )
+                break
+            except (APITimeoutError, APIConnectionError) as e:
+                if attempt == max_attempts:
+                    logger.error(
+                        f"Resume summary generation failed after {max_attempts} "
+                        f"attempts for book {book.id}: {e}"
+                    )
+                    raise
+                backoff_seconds = 2 * attempt
+                logger.warning(
+                    f"OpenAI {type(e).__name__} on attempt {attempt}/{max_attempts} "
+                    f"for book {book.id}; retrying in {backoff_seconds}s"
+                )
+                time.sleep(backoff_seconds)
 
         processing_time_ms = int((time.time() - start_time) * 1000)
 

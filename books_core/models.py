@@ -363,7 +363,7 @@ class Summary(models.Model):
                 name='unique_book_prompt_version'
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(chapter__isnull=False, book__isnull=True) |
                     models.Q(chapter__isnull=True, book__isnull=False)
                 ),

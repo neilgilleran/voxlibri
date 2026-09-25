@@ -111,8 +111,11 @@ def analyze(book: Book, model: str):
     from books_core.models import ProcessingJob
     from books_core.services.chapter_analysis_pipeline_service import ChapterAnalysisPipelineService
 
-    settings.Q_CLUSTER['sync'] = True
-    job = ChapterAnalysisPipelineService(model=model).run_pipeline(book, model)
+    # Django-Q copies Q_CLUSTER into Conf at import, so flip Conf itself; setting
+    # settings.Q_CLUSTER here only queued the tasks for a worker that isn't running.
+    from django_q.conf import Conf
+    Conf.SYNC = True
+    job =ChapterAnalysisPipelineService(model=model).run_pipeline(book, model)
     job.refresh_from_db()
     return job
 

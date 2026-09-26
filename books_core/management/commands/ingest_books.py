@@ -138,8 +138,12 @@ class Command(BaseCommand):
             raise CommandError('Refusing --analyze on the paid API. Set VOXLIBRI_LLM_PROVIDER=codex '
                                '(or claude), or pass --allow-paid.')
 
+        # Django stores "Hooked (Nir Eyal).epub" as "Hooked_Nir_Eyal.epub", so compare
+        # the cleaned name; comparing raw names re-ingested every book daily.
+        from django.core.files.storage import default_storage
         loaded = _loaded_names()
-        todo = [f for f in _find(opts['paths']) if f.name not in loaded]
+        todo = [f for f in _find(opts['paths'])
+                if f.name not in loaded and default_storage.get_valid_name(f.name) not in loaded]
         self.stdout.write(f'{len(todo)} new file(s); provider={subscription_llm.provider()}')
         if opts['list']:
             for f in todo:

@@ -59,9 +59,17 @@ def _loaded_files():
     same three books were re-ingested and re-analysed every night from 26 Sep.
     The bytes do not change, so match on them. Sizes are kept to avoid hashing a
     drop file that cannot match anything.
+
+    Only books with at least one summary count: the pipeline reports "completed"
+    even when every model call failed (usage limit), and an empty copy must not
+    stop the file being ingested again once the model is back.
     """
+    from django.db.models import Q
     sizes, hashes = set(), set()
-    for b in Book.objects.exclude(source_file=''):
+    analysed = (Book.objects.exclude(source_file='')
+                .filter(Q(summaries__isnull=False) | Q(chapters__summaries__isnull=False))
+                .distinct())
+    for b in analysed:
         try:
             p = b.source_file.path
             sizes.add(os.path.getsize(p))
@@ -176,7 +184,7 @@ class Command(BaseCommand):
                 self.stdout.write(f'  {f.name}')
             return
 
-        done = 0
+        done, stopped = 0, False
         for f in todo:
             if opts['limit'] and done >= opts['limit']:
                 break
@@ -194,5 +202,19 @@ class Command(BaseCommand):
                     self.stdout.write(f'  ✓ analysis job #{job.id}: {job.status} ({job.progress_percent}%)')
                 except Exception as e:
                     self.stderr.write(f'  ✗ analysis failed: {e}')
+                # The job says "completed (100%)" even when every model call failed, so
+                # count what was written. None means the model is out (usage limit): stop
+                # here rather than store the rest of the batch empty.
+                written = (book.summaries.count()
+                           + sum(c.summaries.count() for c in book.chapters.all()))
+                if not written:
+                    self.stderr.write(f'  ✗ book #{book.id}: analysis wrote no summaries '
+                                      '(model unavailable?); stopping the batch')
+                    stopped = True
+                    break
+                sizes.add(os.path.getsize(f))
+                hashes.add(_sha256(f))
             done += 1
         self.stdout.write(f'loaded {done} book(s)')
+        if stopped:
+            raise CommandError('stopped: a book came back with no analysis')

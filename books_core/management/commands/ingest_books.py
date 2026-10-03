@@ -6,9 +6,9 @@ full analysis pipeline, without the web upload page or a qcluster worker.
     python manage.py ingest_books path/to/book.epub --analyze
     python manage.py ingest_books ~/FromLaptop/books --list
 
-Directories are searched recursively. A file is skipped when a book with the same
-source filename is already loaded (so re-running over a folder only picks up new
-drops). --analyze runs the chapter pipeline and the book-level aggregation inline
+Directories are searched recursively. A file is skipped when a stored book has the
+same bytes (size + sha256), so re-running over a folder only picks up new
+drops. --analyze runs the chapter pipeline and the book-level aggregation inline
 (Django-Q sync mode), which is what the Lemmy synopsis bot reads.
 
 Pair with VOXLIBRI_LLM_PROVIDER=codex (or claude) to run on a subscription instead
@@ -42,8 +42,37 @@ def _find(paths):
                 yield f
 
 
-def _loaded_names():
-    return {os.path.basename(b.source_file.name) for b in Book.objects.exclude(source_file='')}
+def _sha256(path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for block in iter(lambda: fh.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _loaded_files():
+    """Size and content hash of every stored book file.
+
+    Matching by name never worked: Django truncates long names to the field's
+    max_length and appends a random suffix ("..._Sini_Guo__iK2OG7x.epub"), so the
+    same three books were re-ingested and re-analysed every night from 26 Sep.
+    The bytes do not change, so match on them. Sizes are kept to avoid hashing a
+    drop file that cannot match anything.
+    """
+    sizes, hashes = set(), set()
+    for b in Book.objects.exclude(source_file=''):
+        try:
+            p = b.source_file.path
+            sizes.add(os.path.getsize(p))
+            hashes.add(_sha256(p))
+        except (OSError, ValueError):
+            continue
+    return sizes, hashes
+
+
+def _already_loaded(path: Path, sizes, hashes) -> bool:
+    return os.path.getsize(path) in sizes and _sha256(path) in hashes
 
 
 def ingest_file(path: Path, book_type: str = 'nonfiction') -> Book:
@@ -138,12 +167,9 @@ class Command(BaseCommand):
             raise CommandError('Refusing --analyze on the paid API. Set VOXLIBRI_LLM_PROVIDER=codex '
                                '(or claude), or pass --allow-paid.')
 
-        # Django stores "Hooked (Nir Eyal).epub" as "Hooked_Nir_Eyal.epub", so compare
-        # the cleaned name; comparing raw names re-ingested every book daily.
-        from django.core.files.storage import default_storage
-        loaded = _loaded_names()
-        todo = [f for f in _find(opts['paths'])
-                if f.name not in loaded and default_storage.get_valid_name(f.name) not in loaded]
+        # A file counts as loaded when its bytes match a stored book (see _loaded_files).
+        sizes, hashes = _loaded_files()
+        todo = [f for f in _find(opts['paths']) if not _already_loaded(f, sizes, hashes)]
         self.stdout.write(f'{len(todo)} new file(s); provider={subscription_llm.provider()}')
         if opts['list']:
             for f in todo:
